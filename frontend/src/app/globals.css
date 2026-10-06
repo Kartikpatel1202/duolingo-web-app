@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/*
+ * Tactile surfaces: a solid offset "edge" under the element (no blur) that is pressed away on
+ * :active. Components set --tactile-edge (and optionally --tactile-depth).
+ */
+@utility tactile {
+  --tactile-depth: 4px;
+  box-shadow: 0 var(--tactile-depth) 0 var(--tactile-edge, var(--color-line-strong));
+  transition:
+    transform 110ms ease-out,
+    box-shadow 110ms ease-out,
+    filter 110ms ease-out;
+
+  @media (hover: hover) {
+    &:not(:disabled):not([aria-disabled="true"]):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 calc(var(--tactile-depth) + 1px) 0 var(--tactile-edge, var(--color-line-strong));
+      filter: brightness(1.04);
+    }
+  }
+
+  &:not(:disabled):not([aria-disabled="true"]):active {
+    transform: translateY(var(--tactile-depth));
+    box-shadow: 0 0 0 var(--tactile-edge, var(--color-line-strong));
+    filter: none;
+  }
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 3px solid var(--color-sky-400);
+    outline-offset: 3px;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--color-white);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 600;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-sky-400);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

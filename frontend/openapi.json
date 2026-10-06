@@ -1,0 +1,2881 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lingo API",
+    "summary": "Backend for a Duolingo-inspired language-learning app.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness and database connectivity",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Current learner with top-bar stats",
+        "operationId": "get_me_api_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update learner preferences (daily goal)",
+        "operationId": "update_me_api_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses": {
+      "get": {
+        "tags": [
+          "courses"
+        ],
+        "summary": "List courses",
+        "operationId": "list_courses_api_courses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseListOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{course_id}": {
+      "get": {
+        "tags": [
+          "courses"
+        ],
+        "summary": "Course detail with the learner's lesson count",
+        "operationId": "get_course_api_courses__course_id__get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{course_id}/path": {
+      "get": {
+        "tags": [
+          "courses"
+        ],
+        "summary": "Learning path: units and skills with the learner's status",
+        "operationId": "get_path_api_courses__course_id__path_get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/skills/{skill_id}": {
+      "get": {
+        "tags": [
+          "courses",
+          "skills"
+        ],
+        "summary": "Skill with its lessons and their status",
+        "operationId": "get_skill_api_skills__skill_id__get",
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lessons/{lesson_id}": {
+      "get": {
+        "tags": [
+          "lessons"
+        ],
+        "summary": "Lesson exercises for play (never includes solutions)",
+        "operationId": "get_lesson_api_lessons__lesson_id__get",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (e.g. LESSON_LOCKED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lessons/{lesson_id}/attempts": {
+      "post": {
+        "tags": [
+          "lessons"
+        ],
+        "summary": "Start a lesson attempt, or resume the active one",
+        "description": "201 when a new attempt is created, 200 when the in-progress attempt is resumed.",
+        "operationId": "start_attempt_api_lessons__lesson_id__attempts_post",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (e.g. LESSON_LOCKED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lessons/{lesson_id}/check": {
+      "post": {
+        "tags": [
+          "lessons"
+        ],
+        "summary": "Check one answer (idempotent per submission_id)",
+        "operationId": "check_answer_api_lessons__lesson_id__check_post",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckAnswerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckAnswerOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/progress": {
+      "get": {
+        "tags": [
+          "progress"
+        ],
+        "summary": "XP, daily goal, streak and course progress summary",
+        "operationId": "get_progress_api_progress_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/progress/lesson/{lesson_id}/complete": {
+      "post": {
+        "tags": [
+          "progress"
+        ],
+        "summary": "Complete a lesson attempt and receive rewards (idempotent)",
+        "operationId": "complete_lesson_api_progress_lesson__lesson_id__complete_post",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteLessonIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteLessonOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (e.g. LESSON_LOCKED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hearts": {
+      "get": {
+        "tags": [
+          "hearts"
+        ],
+        "summary": "Hearts with regeneration info",
+        "operationId": "get_hearts_api_hearts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeartsOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hearts/refill": {
+      "post": {
+        "tags": [
+          "hearts"
+        ],
+        "summary": "Refill hearts with gems",
+        "operationId": "refill_hearts_api_hearts_refill_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefillOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/leaderboard": {
+      "get": {
+        "tags": [
+          "leaderboard"
+        ],
+        "summary": "This week's leaderboard",
+        "operationId": "get_leaderboard_api_leaderboard_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Profile, stats and achievements",
+        "operationId": "get_profile_api_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AchievementMetric": {
+        "type": "string",
+        "enum": [
+          "lessons_completed",
+          "total_xp",
+          "longest_streak",
+          "skills_completed",
+          "perfect_lessons"
+        ],
+        "title": "AchievementMetric"
+      },
+      "AchievementSummaryOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "description",
+          "icon"
+        ],
+        "title": "AchievementSummaryOut"
+      },
+      "AttemptOut": {
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "title": "Attempt Id"
+          },
+          "lesson_id": {
+            "type": "integer",
+            "title": "Lesson Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttemptStatus"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "solved_exercise_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Solved Exercise Ids",
+            "description": "Exercises already answered correctly."
+          },
+          "mistakes": {
+            "type": "integer",
+            "title": "Mistakes"
+          },
+          "total_exercises": {
+            "type": "integer",
+            "title": "Total Exercises"
+          },
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "lesson_id",
+          "status",
+          "started_at",
+          "solved_exercise_ids",
+          "mistakes",
+          "total_exercises",
+          "hearts"
+        ],
+        "title": "AttemptOut"
+      },
+      "AttemptProgressOut": {
+        "properties": {
+          "solved_count": {
+            "type": "integer",
+            "title": "Solved Count"
+          },
+          "total_exercises": {
+            "type": "integer",
+            "title": "Total Exercises"
+          },
+          "mistakes": {
+            "type": "integer",
+            "title": "Mistakes"
+          },
+          "can_complete": {
+            "type": "boolean",
+            "title": "Can Complete"
+          }
+        },
+        "type": "object",
+        "required": [
+          "solved_count",
+          "total_exercises",
+          "mistakes",
+          "can_complete"
+        ],
+        "title": "AttemptProgressOut"
+      },
+      "AttemptStatus": {
+        "type": "string",
+        "enum": [
+          "in_progress",
+          "completed"
+        ],
+        "title": "AttemptStatus"
+      },
+      "CheckAnswerIn": {
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Attempt Id"
+          },
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id"
+          },
+          "submission_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Submission Id",
+            "description": "Client-generated id (e.g. UUID). Retrying with the same id is safe."
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MultipleChoiceAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/WordBankAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/MatchPairsAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/FillBlankAnswer"
+              },
+              {
+                "$ref": "#/components/schemas/TypeAnswerAnswer"
+              }
+            ],
+            "title": "Answer",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "fill_blank": "#/components/schemas/FillBlankAnswer",
+                "match_pairs": "#/components/schemas/MatchPairsAnswer",
+                "multiple_choice": "#/components/schemas/MultipleChoiceAnswer",
+                "type_answer": "#/components/schemas/TypeAnswerAnswer",
+                "word_bank": "#/components/schemas/WordBankAnswer"
+              }
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "exercise_id",
+          "submission_id",
+          "answer"
+        ],
+        "title": "CheckAnswerIn"
+      },
+      "CheckAnswerOut": {
+        "properties": {
+          "submission_id": {
+            "type": "string",
+            "title": "Submission Id"
+          },
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct"
+          },
+          "correct_answer": {
+            "type": "string",
+            "title": "Correct Answer",
+            "description": "Revealed only after the answer has been checked."
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "Soft feedback, e.g. an accent reminder."
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          },
+          "attempt": {
+            "$ref": "#/components/schemas/AttemptProgressOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "submission_id",
+          "exercise_id",
+          "is_correct",
+          "correct_answer",
+          "note",
+          "explanation",
+          "hearts",
+          "attempt"
+        ],
+        "title": "CheckAnswerOut"
+      },
+      "ChoiceOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "emoji": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emoji"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "ChoiceOption"
+      },
+      "CompleteLessonIn": {
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Attempt Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id"
+        ],
+        "title": "CompleteLessonIn"
+      },
+      "CompleteLessonOut": {
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "title": "Attempt Id"
+          },
+          "lesson_id": {
+            "type": "integer",
+            "title": "Lesson Id"
+          },
+          "first_completion": {
+            "type": "boolean",
+            "title": "First Completion"
+          },
+          "xp_awarded": {
+            "type": "integer",
+            "title": "Xp Awarded"
+          },
+          "xp_breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/XpAwardOut"
+            },
+            "type": "array",
+            "title": "Xp Breakdown"
+          },
+          "gems_awarded": {
+            "type": "integer",
+            "title": "Gems Awarded"
+          },
+          "mistakes": {
+            "type": "integer",
+            "title": "Mistakes"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          },
+          "total_xp": {
+            "type": "integer",
+            "title": "Total Xp"
+          },
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          },
+          "daily": {
+            "$ref": "#/components/schemas/DailyGoalOut"
+          },
+          "streak": {
+            "$ref": "#/components/schemas/StreakOut"
+          },
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          },
+          "skill_progress": {
+            "$ref": "#/components/schemas/SkillProgressOut"
+          },
+          "unlocked_skill_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlocked Skill Id",
+            "description": "Skill unlocked by this completion, if any."
+          },
+          "next_lesson_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Lesson Id",
+            "description": "Where the path continues."
+          },
+          "new_achievements": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementSummaryOut"
+            },
+            "type": "array",
+            "title": "New Achievements"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "lesson_id",
+          "first_completion",
+          "xp_awarded",
+          "xp_breakdown",
+          "gems_awarded",
+          "mistakes",
+          "accuracy",
+          "total_xp",
+          "gems",
+          "daily",
+          "streak",
+          "hearts",
+          "skill_progress",
+          "unlocked_skill_id",
+          "next_lesson_id",
+          "new_achievements"
+        ],
+        "title": "CompleteLessonOut",
+        "description": "Result of a completion. Repeating the request returns the same body."
+      },
+      "CourseDetailOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "learning_language": {
+            "type": "string",
+            "title": "Learning Language"
+          },
+          "from_language": {
+            "type": "string",
+            "title": "From Language"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "unit_count": {
+            "type": "integer",
+            "title": "Unit Count"
+          },
+          "skill_count": {
+            "type": "integer",
+            "title": "Skill Count"
+          },
+          "lesson_count": {
+            "type": "integer",
+            "title": "Lesson Count"
+          },
+          "completed_lesson_count": {
+            "type": "integer",
+            "title": "Completed Lesson Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "learning_language",
+          "from_language",
+          "description",
+          "unit_count",
+          "skill_count",
+          "lesson_count",
+          "completed_lesson_count"
+        ],
+        "title": "CourseDetailOut"
+      },
+      "CourseListOut": {
+        "properties": {
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseOut"
+            },
+            "type": "array",
+            "title": "Courses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "courses"
+        ],
+        "title": "CourseListOut"
+      },
+      "CourseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "learning_language": {
+            "type": "string",
+            "title": "Learning Language"
+          },
+          "from_language": {
+            "type": "string",
+            "title": "From Language"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "learning_language",
+          "from_language",
+          "description"
+        ],
+        "title": "CourseOut"
+      },
+      "CourseProgressOut": {
+        "properties": {
+          "course_id": {
+            "type": "integer",
+            "title": "Course Id"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "total_lessons": {
+            "type": "integer",
+            "title": "Total Lessons"
+          },
+          "skills_completed": {
+            "type": "integer",
+            "title": "Skills Completed"
+          },
+          "total_skills": {
+            "type": "integer",
+            "title": "Total Skills"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "course_id",
+          "lessons_completed",
+          "total_lessons",
+          "skills_completed",
+          "total_skills",
+          "progress"
+        ],
+        "title": "CourseProgressOut"
+      },
+      "CurrentUserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "avatar_color": {
+            "type": "string",
+            "title": "Avatar Color"
+          },
+          "current_course_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Course Id"
+          },
+          "total_xp": {
+            "type": "integer",
+            "title": "Total Xp"
+          },
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          },
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          },
+          "streak": {
+            "$ref": "#/components/schemas/StreakOut"
+          },
+          "daily": {
+            "$ref": "#/components/schemas/DailyGoalOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "avatar_color",
+          "current_course_id",
+          "total_xp",
+          "gems",
+          "hearts",
+          "streak",
+          "daily"
+        ],
+        "title": "CurrentUserOut",
+        "description": "Identity plus everything the top stats bar needs, in one request."
+      },
+      "DailyGoalOut": {
+        "properties": {
+          "daily_xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Daily Xp"
+          },
+          "daily_goal": {
+            "type": "integer",
+            "title": "Daily Goal"
+          },
+          "daily_goal_completed": {
+            "type": "boolean",
+            "title": "Daily Goal Completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "daily_xp",
+          "daily_goal",
+          "daily_goal_completed"
+        ],
+        "title": "DailyGoalOut"
+      },
+      "DailyXpOut": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "xp": {
+            "type": "integer",
+            "title": "Xp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "xp"
+        ],
+        "title": "DailyXpOut"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "examples": [
+              "LESSON_LOCKED"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "examples": [
+              "This lesson is locked."
+            ]
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "FillBlankAnswer": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "fill_blank",
+            "title": "Type",
+            "default": "fill_blank"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "FillBlankAnswer"
+      },
+      "FillBlankContent": {
+        "properties": {
+          "before": {
+            "type": "string",
+            "title": "Before",
+            "default": ""
+          },
+          "after": {
+            "type": "string",
+            "title": "After",
+            "default": ""
+          },
+          "translation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 6,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FillBlankContent"
+      },
+      "FillBlankExerciseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "type": {
+            "type": "string",
+            "const": "fill_blank",
+            "title": "Type"
+          },
+          "content": {
+            "$ref": "#/components/schemas/FillBlankContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "prompt",
+          "type",
+          "content"
+        ],
+        "title": "FillBlankExerciseOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "const": "ok",
+            "title": "Database"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "HealthOut"
+      },
+      "HeartsOut": {
+        "properties": {
+          "current": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current"
+          },
+          "max": {
+            "type": "integer",
+            "title": "Max"
+          },
+          "next_heart_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Heart At",
+            "description": "When the next heart regenerates; null if full."
+          },
+          "regen_minutes": {
+            "type": "integer",
+            "title": "Regen Minutes"
+          },
+          "refill_cost_gems": {
+            "type": "integer",
+            "title": "Refill Cost Gems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "max",
+          "next_heart_at",
+          "regen_minutes",
+          "refill_cost_gems"
+        ],
+        "title": "HeartsOut"
+      },
+      "LeaderboardOut": {
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "resets_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Resets At"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRowOut"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "current_user": {
+            "$ref": "#/components/schemas/LeaderboardStandingOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_start",
+          "resets_at",
+          "entries",
+          "current_user"
+        ],
+        "title": "LeaderboardOut"
+      },
+      "LeaderboardRowOut": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "avatar_color": {
+            "type": "string",
+            "title": "Avatar Color"
+          },
+          "xp": {
+            "type": "integer",
+            "title": "Xp"
+          },
+          "is_current_user": {
+            "type": "boolean",
+            "title": "Is Current User"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "user_id",
+          "display_name",
+          "avatar_color",
+          "xp",
+          "is_current_user"
+        ],
+        "title": "LeaderboardRowOut"
+      },
+      "LeaderboardStandingOut": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "xp": {
+            "type": "integer",
+            "title": "Xp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "xp"
+        ],
+        "title": "LeaderboardStandingOut"
+      },
+      "LessonOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "skill_id": {
+            "type": "integer",
+            "title": "Skill Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "xp_reward": {
+            "type": "integer",
+            "title": "Xp Reward"
+          },
+          "exercises": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/MultipleChoiceExerciseOut"
+                },
+                {
+                  "$ref": "#/components/schemas/WordBankExerciseOut"
+                },
+                {
+                  "$ref": "#/components/schemas/MatchPairsExerciseOut"
+                },
+                {
+                  "$ref": "#/components/schemas/FillBlankExerciseOut"
+                },
+                {
+                  "$ref": "#/components/schemas/TypeAnswerExerciseOut"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "fill_blank": "#/components/schemas/FillBlankExerciseOut",
+                  "match_pairs": "#/components/schemas/MatchPairsExerciseOut",
+                  "multiple_choice": "#/components/schemas/MultipleChoiceExerciseOut",
+                  "type_answer": "#/components/schemas/TypeAnswerExerciseOut",
+                  "word_bank": "#/components/schemas/WordBankExerciseOut"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Exercises"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "skill_id",
+          "title",
+          "xp_reward",
+          "exercises"
+        ],
+        "title": "LessonOut",
+        "description": "Everything needed to render a lesson — and nothing that reveals an answer."
+      },
+      "LessonStatus": {
+        "type": "string",
+        "enum": [
+          "locked",
+          "available",
+          "completed"
+        ],
+        "title": "LessonStatus"
+      },
+      "MatchPairsAnswer": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "match_pairs",
+            "title": "Type",
+            "default": "match_pairs"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/SubmittedPair"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Pairs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pairs"
+        ],
+        "title": "MatchPairsAnswer"
+      },
+      "MatchPairsContent": {
+        "properties": {
+          "left": {
+            "items": {
+              "$ref": "#/components/schemas/PairItem"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Left"
+          },
+          "right": {
+            "items": {
+              "$ref": "#/components/schemas/PairItem"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Right"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "left",
+          "right"
+        ],
+        "title": "MatchPairsContent"
+      },
+      "MatchPairsExerciseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "type": {
+            "type": "string",
+            "const": "match_pairs",
+            "title": "Type"
+          },
+          "content": {
+            "$ref": "#/components/schemas/MatchPairsContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "prompt",
+          "type",
+          "content"
+        ],
+        "title": "MatchPairsExerciseOut"
+      },
+      "MultipleChoiceAnswer": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "multiple_choice",
+            "title": "Type",
+            "default": "multiple_choice"
+          },
+          "option_id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Option Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "option_id"
+        ],
+        "title": "MultipleChoiceAnswer"
+      },
+      "MultipleChoiceContent": {
+        "properties": {
+          "source_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Text"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOption"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "options"
+        ],
+        "title": "MultipleChoiceContent"
+      },
+      "MultipleChoiceExerciseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "type": {
+            "type": "string",
+            "const": "multiple_choice",
+            "title": "Type"
+          },
+          "content": {
+            "$ref": "#/components/schemas/MultipleChoiceContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "prompt",
+          "type",
+          "content"
+        ],
+        "title": "MultipleChoiceExerciseOut"
+      },
+      "PairItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "PairItem"
+      },
+      "PathOut": {
+        "properties": {
+          "course": {
+            "$ref": "#/components/schemas/CourseOut"
+          },
+          "current_skill_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Skill Id"
+          },
+          "current_lesson_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Lesson Id"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/PathUnitOut"
+            },
+            "type": "array",
+            "title": "Units"
+          }
+        },
+        "type": "object",
+        "required": [
+          "course",
+          "current_skill_id",
+          "current_lesson_id",
+          "units"
+        ],
+        "title": "PathOut"
+      },
+      "PathSkillOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SkillStatus"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "total_lessons": {
+            "type": "integer",
+            "title": "Total Lessons"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "next_lesson_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Lesson Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "title",
+          "icon",
+          "description",
+          "status",
+          "lessons_completed",
+          "total_lessons",
+          "progress",
+          "next_lesson_id"
+        ],
+        "title": "PathSkillOut"
+      },
+      "PathUnitOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/PathSkillOut"
+            },
+            "type": "array",
+            "title": "Skills"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "title",
+          "description",
+          "theme",
+          "skills"
+        ],
+        "title": "PathUnitOut"
+      },
+      "ProfileAchievementOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/AchievementMetric"
+          },
+          "threshold": {
+            "type": "integer",
+            "title": "Threshold"
+          },
+          "progress": {
+            "type": "integer",
+            "title": "Progress"
+          },
+          "earned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earned At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "description",
+          "icon",
+          "metric",
+          "threshold",
+          "progress",
+          "earned_at"
+        ],
+        "title": "ProfileAchievementOut"
+      },
+      "ProfileOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/ProfileUserOut"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/ProfileStatsOut"
+          },
+          "achievements": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileAchievementOut"
+            },
+            "type": "array",
+            "title": "Achievements"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "stats",
+          "achievements"
+        ],
+        "title": "ProfileOut"
+      },
+      "ProfileStatsOut": {
+        "properties": {
+          "total_xp": {
+            "type": "integer",
+            "title": "Total Xp"
+          },
+          "current_streak": {
+            "type": "integer",
+            "title": "Current Streak"
+          },
+          "longest_streak": {
+            "type": "integer",
+            "title": "Longest Streak"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "skills_completed": {
+            "type": "integer",
+            "title": "Skills Completed"
+          },
+          "weekly_xp": {
+            "type": "integer",
+            "title": "Weekly Xp"
+          },
+          "league_rank": {
+            "type": "integer",
+            "title": "League Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_xp",
+          "current_streak",
+          "longest_streak",
+          "lessons_completed",
+          "skills_completed",
+          "weekly_xp",
+          "league_rank"
+        ],
+        "title": "ProfileStatsOut"
+      },
+      "ProfileUserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "avatar_color": {
+            "type": "string",
+            "title": "Avatar Color"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "avatar_color",
+          "joined_at"
+        ],
+        "title": "ProfileUserOut"
+      },
+      "ProgressOut": {
+        "properties": {
+          "total_xp": {
+            "type": "integer",
+            "title": "Total Xp"
+          },
+          "daily": {
+            "$ref": "#/components/schemas/DailyGoalOut"
+          },
+          "streak": {
+            "$ref": "#/components/schemas/StreakOut"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "skills_completed": {
+            "type": "integer",
+            "title": "Skills Completed"
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseProgressOut"
+            },
+            "type": "array",
+            "title": "Courses"
+          },
+          "last_7_days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyXpOut"
+            },
+            "type": "array",
+            "title": "Last 7 Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_xp",
+          "daily",
+          "streak",
+          "lessons_completed",
+          "skills_completed",
+          "courses",
+          "last_7_days"
+        ],
+        "title": "ProgressOut"
+      },
+      "RefillOut": {
+        "properties": {
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          },
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hearts",
+          "gems"
+        ],
+        "title": "RefillOut"
+      },
+      "SkillDetailOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "unit_id": {
+            "type": "integer",
+            "title": "Unit Id"
+          },
+          "course_id": {
+            "type": "integer",
+            "title": "Course Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SkillStatus"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "total_lessons": {
+            "type": "integer",
+            "title": "Total Lessons"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "next_lesson_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Lesson Id"
+          },
+          "lessons": {
+            "items": {
+              "$ref": "#/components/schemas/SkillLessonOut"
+            },
+            "type": "array",
+            "title": "Lessons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "unit_id",
+          "course_id",
+          "title",
+          "icon",
+          "description",
+          "status",
+          "lessons_completed",
+          "total_lessons",
+          "progress",
+          "next_lesson_id",
+          "lessons"
+        ],
+        "title": "SkillDetailOut"
+      },
+      "SkillLessonOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "xp_reward": {
+            "type": "integer",
+            "title": "Xp Reward"
+          },
+          "exercise_count": {
+            "type": "integer",
+            "title": "Exercise Count"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LessonStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "title",
+          "xp_reward",
+          "exercise_count",
+          "status"
+        ],
+        "title": "SkillLessonOut"
+      },
+      "SkillProgressOut": {
+        "properties": {
+          "skill_id": {
+            "type": "integer",
+            "title": "Skill Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SkillStatus"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          },
+          "total_lessons": {
+            "type": "integer",
+            "title": "Total Lessons"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skill_id",
+          "status",
+          "lessons_completed",
+          "total_lessons",
+          "progress"
+        ],
+        "title": "SkillProgressOut"
+      },
+      "SkillStatus": {
+        "type": "string",
+        "enum": [
+          "locked",
+          "available",
+          "in_progress",
+          "completed"
+        ],
+        "title": "SkillStatus"
+      },
+      "StreakOut": {
+        "properties": {
+          "current": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current",
+            "description": "Displayed streak (0 once a day has been missed)."
+          },
+          "longest": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Longest"
+          },
+          "active_today": {
+            "type": "boolean",
+            "title": "Active Today",
+            "description": "Whether a lesson was completed today."
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "longest",
+          "active_today"
+        ],
+        "title": "StreakOut"
+      },
+      "SubmittedPair": {
+        "properties": {
+          "left_id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Left Id"
+          },
+          "right_id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Right Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "left_id",
+          "right_id"
+        ],
+        "title": "SubmittedPair"
+      },
+      "TypeAnswerAnswer": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "type_answer",
+            "title": "Type",
+            "default": "type_answer"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TypeAnswerAnswer"
+      },
+      "TypeAnswerContent": {
+        "properties": {
+          "source_text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Text"
+          },
+          "source_language": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 2,
+            "title": "Source Language"
+          },
+          "target_language": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 2,
+            "title": "Target Language"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_text",
+          "source_language",
+          "target_language"
+        ],
+        "title": "TypeAnswerContent"
+      },
+      "TypeAnswerExerciseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "type": {
+            "type": "string",
+            "const": "type_answer",
+            "title": "Type"
+          },
+          "content": {
+            "$ref": "#/components/schemas/TypeAnswerContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "prompt",
+          "type",
+          "content"
+        ],
+        "title": "TypeAnswerExerciseOut"
+      },
+      "UpdateUserIn": {
+        "properties": {
+          "daily_goal_xp": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              30,
+              50
+            ],
+            "title": "Daily Goal Xp",
+            "description": "Daily XP goal."
+          }
+        },
+        "type": "object",
+        "required": [
+          "daily_goal_xp"
+        ],
+        "title": "UpdateUserIn"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WordBankAnswer": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "word_bank",
+            "title": "Type",
+            "default": "word_bank"
+          },
+          "tile_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Tile Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tile_ids"
+        ],
+        "title": "WordBankAnswer"
+      },
+      "WordBankContent": {
+        "properties": {
+          "source_text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Text"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/WordTile"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "minItems": 2,
+            "title": "Tiles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_text",
+          "tiles"
+        ],
+        "title": "WordBankContent"
+      },
+      "WordBankExerciseOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "type": {
+            "type": "string",
+            "const": "word_bank",
+            "title": "Type"
+          },
+          "content": {
+            "$ref": "#/components/schemas/WordBankContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "prompt",
+          "type",
+          "content"
+        ],
+        "title": "WordBankExerciseOut"
+      },
+      "WordTile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "WordTile"
+      },
+      "XpAwardOut": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/XpSource"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "amount"
+        ],
+        "title": "XpAwardOut"
+      },
+      "XpSource": {
+        "type": "string",
+        "enum": [
+          "lesson_completion",
+          "perfect_bonus",
+          "seed"
+        ],
+        "title": "XpSource"
+      }
+    }
+  }
+}

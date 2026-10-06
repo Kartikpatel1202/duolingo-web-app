@@ -1,7 +1,7 @@
 # Architecture — "Lingo" (Duolingo-inspired language-learning app)
 
-> Status: **Phase 0 — design baseline.** Nothing here is implemented yet. This document is the
-> contract that Phase 1+ implement against. When an implementation decision deviates from this
+> Status: **Phase 2 — backend + frontend foundation implemented.** The lesson player (Phase 3) is not
+> built yet. §14 and §15 list where implementation refined the Phase 0 design. When an implementation decision deviates from this
 > document, update the document in the same change.
 
 Contents
@@ -19,6 +19,8 @@ Contents
 11. [Design system](#11-design-system)
 12. [Interview cheat-sheet](#12-interview-cheat-sheet)
 13. [Known risks before Phase 1](#13-known-risks-before-phase-1)
+14. [Phase 1 implementation notes](#14-phase-1-implementation-notes)
+15. [Phase 2 implementation notes](#15-phase-2-implementation-notes)
 
 ---
 
@@ -184,64 +186,69 @@ zoom), `touch-action: manipulation` on tiles to remove double-tap delay.
 ```
 backend/
 ├── app/
-│   ├── main.py                      # create_app(): routers, CORS, exception handlers
+│   ├── main.py                      # create_app(settings, clock): routers, CORS, error handlers
 │   ├── core/
 │   │   ├── config.py                # Settings (pydantic-settings) from env
-│   │   ├── clock.py                 # Clock protocol, SystemClock, FixedClock, local-date helpers
-│   │   └── errors.py                # AppError hierarchy + handlers → {"error": {...}}
+│   │   ├── clock.py                 # Clock protocol, SystemClock, FixedClock, local_date()
+│   │   └── errors.py                # category → HTTP status table + {"error": {...}} handlers
 │   ├── db/
-│   │   ├── base.py                  # DeclarativeBase, naming convention for constraints
-│   │   └── session.py               # engine (PRAGMA foreign_keys=ON, WAL), SessionLocal, get_db
+│   │   ├── database.py              # Base (naming convention), engine (FK pragma, WAL), sessions
+│   │   └── types.py                 # UTCDateTime, str_enum (portable CHECK-constrained enums)
 │   ├── models/                      # SQLAlchemy ORM (persistence shape only)
 │   │   ├── content.py               # Course, Unit, Skill, Lesson, Exercise
 │   │   ├── user.py                  # User
-│   │   ├── progress.py              # UserLessonProgress, UserSkillProgress, LessonAttempt, AttemptAnswer
+│   │   ├── progress.py              # LessonAttempt, AttemptAnswer, UserLessonProgress, UserSkillProgress
 │   │   └── gamification.py          # XpEvent, LeaderboardEntry, Achievement, UserAchievement
 │   ├── schemas/                     # Pydantic API contracts (request/response)
-│   │   ├── common.py                # ErrorResponse, HeartsOut, StreakOut
-│   │   ├── user.py, course.py, skill.py, lesson.py, progress.py, leaderboard.py, profile.py
-│   │   └── exercise.py              # PublicExercise union, Answer union (built from domain registry)
+│   │   ├── common.py                # ApiModel, ErrorResponse, HeartsOut, StreakOut, DailyGoalOut
+│   │   ├── exercise.py              # ExerciseOut / AnswerIn discriminated unions
+│   │   └── user.py, course.py, lesson.py, progress.py, gamification.py
 │   ├── api/
-│   │   ├── deps.py                  # get_db, get_clock, get_current_user, service factories
-│   │   └── routers/                 # health, users, courses, skills, lessons, progress,
-│   │                                # hearts, leaderboard, profile, test_support
-│   ├── services/                    # use-cases; own the transaction
-│   │   ├── user_service.py
-│   │   ├── course_service.py        # path assembly (content + learner status)
-│   │   ├── lesson_service.py        # get lesson, start/resume attempt
+│   │   ├── deps.py                  # session, clock, ServiceContext, current user, service factories
+│   │   ├── responses.py             # documented error responses for OpenAPI
+│   │   └── routers/                 # health, users, courses (+skills), lessons, progress,
+│   │                                # gamification (hearts/leaderboard/profile), test_support
+│   ├── services/                    # use-cases; each mutating method owns its commit
+│   │   ├── context.py               # ServiceContext(session, clock, timezone)
+│   │   ├── course_progress.py       # CourseProgress read model: every lock/unlock decision
+│   │   ├── user_service.py, course_service.py, lesson_service.py, progress_service.py
 │   │   ├── answer_service.py        # check answer (idempotent), heart deduction
 │   │   ├── completion_service.py    # complete lesson (idempotent orchestration)
-│   │   ├── hearts_service.py        # read with regeneration, refill
+│   │   ├── attempts.py              # shared "attempt belongs to user + lesson" rule
+│   │   ├── hearts_service.py        # pure read with regeneration; lose; refill
+│   │   ├── stats_service.py         # total/daily XP, displayed streak
 │   │   ├── xp_service.py            # the ONLY writer of XpEvent + LeaderboardEntry
-│   │   ├── achievement_service.py
-│   │   ├── leaderboard_service.py
-│   │   └── profile_service.py
-│   ├── domain/                      # PURE functions/values; no Session, no FastAPI
-│   │   ├── rules.py                 # constants: MAX_HEARTS, XP values, costs…
-│   │   ├── hearts.py                # regenerate(), deduct(), refill()
-│   │   ├── streak.py                # advance_streak(), displayed_streak()
-│   │   ├── xp.py                    # completion_award()
-│   │   ├── unlocks.py               # skill/lesson status computation
-│   │   ├── leaderboard.py           # week_start(), rank()
-│   │   ├── achievements.py          # newly_earned(metrics, catalog)
-│   │   ├── text.py                  # normalize()
+│   │   └── achievement_service.py, leaderboard_service.py, profile_service.py
+│   ├── domain/                      # PURE functions/values; no Session, no FastAPI, no clock
+│   │   ├── enums.py, rules.py, errors.py
+│   │   ├── hearts.py                # regenerate(), lose_heart(), refill()
+│   │   ├── streak.py                # record_activity(), displayed_streak()
+│   │   ├── xp.py                    # completion_awards(), accuracy()
+│   │   ├── unlocks.py               # skill_statuses(), lesson_statuses()
+│   │   ├── leaderboard.py           # week_start(), rank_standings()
+│   │   ├── achievements.py          # newly_earned()
+│   │   ├── text.py                  # normalize(), match_text()
 │   │   └── exercises/
-│   │       ├── base.py              # ExerciseChecker protocol, CheckResult
-│   │       ├── registry.py          # type → checker
-│   │       ├── multiple_choice.py, word_bank.py, match_pairs.py, fill_blank.py, type_answer.py
-│   ├── repositories/                # named queries; return ORM objects / small dataclasses
-│   │   ├── content_repo.py, user_repo.py, progress_repo.py, attempt_repo.py,
-│   │   └── xp_repo.py, leaderboard_repo.py, achievement_repo.py
+│   │       ├── base.py              # ExerciseChecker ABC, CheckResult
+│   │       ├── registry.py          # CHECKERS: type → checker
+│   │       └── multiple_choice.py, word_bank.py, match_pairs.py, fill_blank.py, type_answer.py
+│   ├── repositories/                # named queries per aggregate; no rules
+│   │   └── content_, user_, attempt_, progress_, xp_, achievement_repository.py
 │   └── seed/
-│       ├── data/spanish_course.json # course content (validated through checker schemas)
-│       ├── data/users.json          # default learner + deterministic bot learners
-│       └── run.py                   # `python -m app.seed [--reset]`
-├── scripts/export_openapi.py
+│       ├── specs.py                 # authoring format (words + sentences per lesson)
+│       ├── spanish_course.py        # the course content (3 units × 3 skills × 2 lessons)
+│       ├── builder.py               # lesson spec → 7 exercises covering all 5 types
+│       ├── people.py                # learner, rivals (weekly pace), achievement catalog
+│       ├── seeder.py                # idempotent upserts, rival week, demo progress
+│       └── __main__.py              # `python -m app.seed [--reset] [--no-demo]`
+├── scripts/export_openapi.py        # → frontend/openapi.json
 ├── tests/
-│   ├── conftest.py                  # in-memory engine, FixedClock, TestClient, seeded fixtures
-│   ├── unit/                        # domain: checkers, text, streak, hearts, unlocks, leaderboard…
-│   └── integration/                 # API-level: lesson loop, idempotency, unlocks, leaderboard…
-├── pyproject.toml                   # deps + ruff + mypy + pytest config
+│   ├── conftest.py                  # in-memory app per test, FixedClock, seeded content
+│   ├── helpers.py                   # Api driver; correct/wrong answers derived from solutions
+│   ├── unit/                        # domain: checkers, text, streak, hearts, unlocks, xp, weeks
+│   └── integration/                 # HTTP: lesson loop, idempotency, time rules, contract
+├── requirements.txt, requirements-dev.txt
+├── pyproject.toml                   # pytest + ruff + mypy (strict) config
 └── .env.example
 ```
 
@@ -251,7 +258,7 @@ backend/
 |-------|-------------|---------------------|---------|
 | Router | FastAPI, schemas, a service | SQL, rules | `return service.check_answer(user, lesson_id, body)` |
 | Schema | Pydantic | ORM | `CheckAnswerRequest`, `LessonOut` |
-| Service | repositories, domain, Session, Clock | HTTP status codes (raises `AppError`s) | open transaction, load attempt, call checker, apply heart rule, persist |
+| Service | repositories, domain, Session, Clock | HTTP status codes (raises `DomainError`s) | open transaction, load attempt, call checker, apply heart rule, persist |
 | Domain | plain Python / Pydantic value objects | DB, HTTP, `datetime.now()` | `advance_streak(state, today) -> StreakState` |
 | Repository | SQLAlchemy | rules | `attempt_repo.get_active(user_id, lesson_id)` |
 | Model | SQLAlchemy | API shape | `class LessonAttempt(Base)` |
@@ -259,24 +266,25 @@ backend/
 Example of the target thinness:
 
 ```python
-@router.post("/lessons/{lesson_id}/check", response_model=CheckAnswerResponse)
+@router.post("/{lesson_id}/check", summary="Check one answer (idempotent per submission_id)",
+             responses=errors(404, 409))
 def check_answer(
-    lesson_id: int,
-    body: CheckAnswerRequest,
-    user: User = Depends(get_current_user),
-    service: AnswerService = Depends(get_answer_service),
-) -> CheckAnswerResponse:
+    lesson_id: int, body: CheckAnswerIn, user: CurrentUser, service: AnswerServiceDep
+) -> CheckAnswerOut:
     return service.check(user, lesson_id, body)
 ```
 
 ### Transactions and consistency
 
-* `get_db` yields one `Session` per request. **Mutating service methods are the transaction boundary**:
-  they do all reads/writes then `commit()` once; any exception → rollback in `get_db`.
-* SQLite serialises writers. Mutating services begin with `BEGIN IMMEDIATE` (via
-  `session.connection().exec_driver_sql` or engine event) so two concurrent completions cannot both
-  read "not completed" and both award XP. Unique constraints are the second line of defence; an
-  `IntegrityError` on an idempotency key is translated into "already done → return stored result".
+* `get_session` yields one `Session` per request. **Mutating service methods are the transaction
+  boundary**: they validate everything first, then write, then `commit()` once; any exception →
+  rollback. A rejected request therefore never has side effects (e.g. never costs a heart).
+* Duplicate/concurrent requests are made safe by **unique constraints**, not locks: SQLite serialises
+  writers, and if a duplicate request loses the race its insert violates an idempotency key
+  (`attempt_answers(attempt_id, submission_id)`, `user_lesson_progress(user_id, lesson_id)`,
+  `xp_events(lesson_attempt_id, source)`, the one-active-attempt partial index). The service rolls
+  back and answers from the stored result. *(Phase 0 proposed `BEGIN IMMEDIATE`; constraints alone
+  give the same guarantee with less machinery — see §14.)*
 * SQLite foreign keys are **off by default**: the engine sets `PRAGMA foreign_keys=ON` on every
   connection via a `connect` event listener. WAL mode for concurrent reads during writes.
 * Schema is created with `Base.metadata.create_all()` and a seed command. Alembic is a documented
@@ -288,9 +296,11 @@ def check_answer(
 { "error": { "code": "LESSON_LOCKED", "message": "This lesson is locked.", "details": {"lesson_id": 12} } }
 ```
 
-* `AppError(code, message, status, details)` subclasses live in `core/errors.py`
-  (`NotFoundError`, `ConflictError`, `ForbiddenError`, `DomainValidationError`).
-* Services raise them; one exception handler serialises them. Routers never build error JSON.
+* Errors are `DomainError` subclasses in `domain/errors.py`, each with a `code` and default message,
+  grouped in four categories: `NotFound`, `AccessDenied`, `Conflict`, `InvalidInput`. Services and
+  domain rules raise them without knowing HTTP.
+* `core/errors.py` maps **categories** to status codes in one table (404/403/409/422) and serialises
+  the envelope. Routers never build error JSON; a new error never touches a router.
 * `RequestValidationError` → `422 VALIDATION_ERROR` with Pydantic errors in `details.fields`.
 * Unknown exceptions → `500 INTERNAL_ERROR` (message generic, stack trace only in logs).
 * Every route declares `responses={...: {"model": ErrorResponse}}` so errors appear in OpenAPI and in
@@ -480,7 +490,7 @@ with `last_activity_date` three days ago displays as 0) — no nightly job.
 | id | VARCHAR(36) | PK | UUID4, generated server-side |
 | user_id | INTEGER | no | FK → users.id **CASCADE** |
 | lesson_id | INTEGER | no | FK → lessons.id **RESTRICT** |
-| status | VARCHAR(16) | no | CHECK IN (`in_progress`, `completed`, `abandoned`) |
+| status | VARCHAR(11) | no | CHECK IN (`in_progress`, `completed`) |
 | started_at | DATETIME | no | |
 | completed_at | DATETIME | yes | set iff status = completed (CHECK) |
 
@@ -638,13 +648,13 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 ```jsonc
 // HeartsOut
 { "current": 4, "max": 5, "next_heart_at": "2026-10-06T14:30:00Z" /* null when full */,
-  "regen_minutes": 30, "refill_cost_gems": 100 }
+  "regen_minutes": 30, "refill_cost_gems": 50 }
 
 // StreakOut
 { "current": 6, "longest": 12, "active_today": true }
 
-// DailyGoalOut
-{ "goal_xp": 20, "earned_xp": 15, "met": false }
+// DailyGoalOut  (key "daily" in responses)
+{ "daily_xp": 15, "daily_goal": 20, "daily_goal_completed": false }
 ```
 
 ### Contracts
@@ -657,7 +667,7 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 ```json
 { "id": 1, "username": "learner", "display_name": "Alex", "avatar_color": "blue",
   "current_course_id": 1, "total_xp": 230, "gems": 480,
-  "hearts": { "...": "HeartsOut" }, "streak": { "...": "StreakOut" }, "daily_goal": { "...": "DailyGoalOut" } }
+  "hearts": { "...": "HeartsOut" }, "streak": { "...": "StreakOut" }, "daily": { "...": "DailyGoalOut" } }
 ```
 Errors: 404 `USER_NOT_FOUND` (default learner not seeded — tells the developer to run the seed).
 
@@ -668,7 +678,7 @@ Request `{ "daily_goal_xp": 30 }` (Literal[10,20,30,50]). 200 → same as `GET /
 200 `{ "courses": [{ "id": 1, "slug": "es-en", "title": "Spanish", "learning_language": "es", "from_language": "en" }] }`
 
 #### `GET /api/courses/{course_id}`
-200 `{ ...course, "unit_count": 2, "skill_count": 6, "lesson_count": 15, "completed_lesson_count": 4 }`
+200 `{ ...course, "unit_count": 3, "skill_count": 9, "lesson_count": 18, "completed_lesson_count": 4 }`
 404 `COURSE_NOT_FOUND`.
 
 #### `GET /api/courses/{course_id}/path`
@@ -676,9 +686,9 @@ Request `{ "daily_goal_xp": 30 }` (Literal[10,20,30,50]). 200 → same as `GET /
 ```json
 {
   "course": { "id": 1, "title": "Spanish" },
-  "current_skill_id": 3,
+  "current_skill_id": 3, "current_lesson_id": 9,
   "units": [{
-    "id": 1, "position": 1, "title": "Unit 1", "description": "Greet people", "theme": "green",
+    "id": 1, "position": 1, "title": "Unit 1", "description": "Greet people", "theme": "leaf",
     "skills": [{
       "id": 3, "position": 3, "title": "Food", "icon": "apple",
       "status": "in_progress",               // locked | available | in_progress | completed
@@ -688,14 +698,15 @@ Request `{ "daily_goal_xp": 30 }` (Literal[10,20,30,50]). 200 → same as `GET /
   }]
 }
 ```
-404 `COURSE_NOT_FOUND`. Built by `CourseService.get_path()` with **3 queries** (content tree, completed
-lesson ids, skill progress rows) and the pure `domain.unlocks.compute_path_status()`. No N+1.
+404 `COURSE_NOT_FOUND`. Built by `CourseService.path()` from the `CourseProgress` read model: a
+constant number of queries (content tree via `selectinload`, completed lesson ids, completed skill ids)
+and the pure `domain.unlocks` functions. No N+1.
 
 #### `GET /api/skills/{skill_id}`
 200
 ```json
 { "id": 3, "title": "Food", "icon": "apple", "status": "in_progress", "unit_id": 1,
-  "lessons": [{ "id": 8, "position": 1, "title": null, "xp_reward": 10, "exercise_count": 6,
+  "lessons": [{ "id": 8, "position": 1, "title": null, "xp_reward": 10, "exercise_count": 7,
                 "status": "completed" /* locked | available | completed */ }] }
 ```
 404 `SKILL_NOT_FOUND`. Locked skills are returned (popover shows "complete previous skill") — not 403.
@@ -706,7 +717,7 @@ lesson ids, skill progress rows) and the pure `domain.unlocks.compute_path_statu
 { "id": 9, "skill_id": 3, "title": null, "xp_reward": 10,
   "exercises": [
     { "id": 41, "position": 1, "type": "multiple_choice", "prompt": "Which one is \"the apple\"?",
-      "content": { "options": [{ "id": "a", "text": "la manzana", "image": "apple" }, { "id": "b", "text": "el pan", "image": "bread" }] } },
+      "content": { "source_text": null, "options": [{ "id": "a", "text": "la manzana", "emoji": "🍎" }, { "id": "b", "text": "el pan", "emoji": "🍞" }] } },
     { "id": 42, "position": 2, "type": "word_bank", "prompt": "Translate this sentence",
       "content": { "source_text": "I eat bread", "tiles": [{ "id": "t1", "text": "Yo" }, { "id": "t2", "text": "como" }, { "id": "t3", "text": "pan" }, { "id": "t4", "text": "agua" }] } }
   ] }
@@ -719,7 +730,7 @@ Request: none. Creates an attempt, or **resumes** the active one (refresh-safe).
 201 (new) / 200 (resumed)
 ```json
 { "attempt_id": "2b6f…", "lesson_id": 9, "status": "in_progress", "started_at": "…",
-  "solved_exercise_ids": [41], "mistakes": 1, "hearts": { "...": "HeartsOut" } }
+  "solved_exercise_ids": [41], "mistakes": 1, "total_exercises": 7, "hearts": { "...": "HeartsOut" } }
 ```
 403 `LESSON_LOCKED` · 404 `LESSON_NOT_FOUND` · 409 `OUT_OF_HEARTS` (hearts = 0 after regeneration).
 
@@ -738,55 +749,57 @@ Request
   "hearts": { "...": "HeartsOut" },
   "attempt": { "solved_count": 1, "total_exercises": 6, "mistakes": 2, "can_complete": false } }
 ```
-`note` carries soft feedback such as "Pay attention to accents: *está*" (accepted, but nudged).
-Validation & errors:
+`note` carries soft feedback such as "Watch your accents: Hasta mañana." (accepted, but nudged).
+Validation & errors (all checked **before** any write — a rejected request never costs a heart):
 * 404 `LESSON_NOT_FOUND` / `ATTEMPT_NOT_FOUND` (or attempt belongs to another user — same 404, no leak)
-* 422 `ATTEMPT_LESSON_MISMATCH` — attempt is for a different lesson
-* 422 `EXERCISE_NOT_IN_LESSON`
-* 422 `ANSWER_TYPE_MISMATCH` — `answer.type ≠ exercise.type`
-* 422 `INVALID_ANSWER` — references unknown option/tile ids, duplicate tile ids, etc.
-* 409 `ATTEMPT_NOT_ACTIVE` — attempt completed/abandoned
+* 404 `EXERCISE_NOT_FOUND` — the exercise is not part of this lesson
+* 409 `ATTEMPT_INVALID` — the attempt belongs to a different lesson
+* 409 `ALREADY_COMPLETED` — the attempt is already completed
 * 409 `EXERCISE_ALREADY_SOLVED` — this exercise already has a correct answer in the attempt
-* 409 `OUT_OF_HEARTS` — hearts are 0 (refill first)
-* Same `submission_id` again → **200 with the stored result, no side effects** (idempotent retry).
+* 409 `OUT_OF_HEARTS` — hearts are 0 after regeneration (refill first); `details.next_heart_at`
+* 409 `DUPLICATE_SUBMISSION` — `submission_id` reused with a different exercise or answer
+* 422 `INVALID_ANSWER` — wrong answer type for the exercise, unknown option/tile ids, reused tiles,
+  incomplete match set, empty text
+* Same `submission_id` + same payload again → **200 with the stored result, no side effects**.
 
 #### `POST /api/progress/lesson/{lesson_id}/complete`
 Request `{ "attempt_id": "2b6f…" }`
 200
 ```json
-{ "attempt_id": "2b6f…", "first_completion": true,
+{ "attempt_id": "2b6f…", "lesson_id": 9, "first_completion": true,
   "xp_awarded": 15, "xp_breakdown": [{ "source": "lesson_completion", "amount": 10 }, { "source": "perfect_bonus", "amount": 5 }],
-  "gems_awarded": 5, "mistakes": 0, "accuracy": 1.0,
-  "total_xp": 245, "daily_goal": { "goal_xp": 20, "earned_xp": 30, "met": true },
-  "streak": { "current": 7, "longest": 12, "active_today": true, "extended": true },
-  "skill": { "id": 3, "status": "completed", "lessons_completed": 3, "total_lessons": 3 },
-  "next_lesson_id": 10, "unlocked_skill_id": 4,
-  "new_achievements": [{ "code": "first_lesson", "title": "First Steps", "icon": "footprints" }],
-  "hearts": { "...": "HeartsOut" }, "gems": 485 }
+  "gems_awarded": 5, "mistakes": 0, "accuracy": 1.0, "total_xp": 245, "gems": 485,
+  "daily": { "daily_xp": 30, "daily_goal": 20, "daily_goal_completed": true },
+  "streak": { "current": 7, "longest": 12, "active_today": true },
+  "hearts": { "...": "HeartsOut" },
+  "skill_progress": { "skill_id": 3, "status": "completed", "lessons_completed": 2, "total_lessons": 2, "progress": 1.0 },
+  "unlocked_skill_id": 4, "next_lesson_id": 10,
+  "new_achievements": [{ "code": "first_lesson", "title": "First Steps", "description": "…", "icon": "footprints" }] }
 ```
-Idempotency: calling again with the same completed attempt returns **200 with an equivalent body**
-(awards reconstructed from `xp_events` / `user_achievements` linked to the attempt; `extended:false`)
-and changes nothing.
-Errors: 404 `LESSON_NOT_FOUND`/`ATTEMPT_NOT_FOUND` · 422 `ATTEMPT_LESSON_MISMATCH` ·
-409 `LESSON_NOT_FINISHED` (not every exercise has a correct answer; `details.unsolved_exercise_ids`) ·
-409 `ATTEMPT_NOT_ACTIVE` (abandoned).
+Idempotency: calling again with the same completed attempt returns **200 with an identical body**
+(rebuilt from `xp_events` / `user_achievements` / `user_skill_progress` linked to the attempt) and
+changes nothing.
+Errors: 404 `LESSON_NOT_FOUND`/`ATTEMPT_NOT_FOUND` · 403 `LESSON_LOCKED` · 409 `ATTEMPT_INVALID`
+(attempt of another lesson) · 409 `LESSON_NOT_FINISHED` (`details.unsolved_exercise_ids`).
 Why under `/progress` rather than `/lessons`: it mutates learner progress (XP, streak, unlocks) — the
 `check` endpoint mutates only attempt state.
 
 #### `GET /api/progress`
 200
 ```json
-{ "total_xp": 245, "daily_goal": { "...": "DailyGoalOut" }, "streak": { "...": "StreakOut" },
-  "lessons_completed": 5, "skills_completed": 1,
-  "courses": [{ "course_id": 1, "lessons_completed": 5, "total_lessons": 15, "progress": 0.33 }],
+{ "total_xp": 245, "daily": { "...": "DailyGoalOut" }, "streak": { "...": "StreakOut" },
+  "lessons_completed": 5, "skills_completed": 2,
+  "courses": [{ "course_id": 1, "lessons_completed": 5, "total_lessons": 18, "skills_completed": 2,
+                "total_skills": 9, "progress": 0.2778 }],
   "last_7_days": [{ "date": "2026-09-30", "xp": 0 }, { "date": "2026-10-06", "xp": 30 }] }
 ```
 
 #### `GET /api/hearts`
-200 `HeartsOut`. Regeneration is applied (and persisted) lazily.
+200 `HeartsOut`. Regeneration is computed on read and **not written** (reads are side-effect free);
+the regenerated value is persisted with the next heart change.
 
 #### `POST /api/hearts/refill`
-Request: none. 200 `{ "hearts": HeartsOut, "gems": 380 }`
+Request: none. 200 `{ "hearts": HeartsOut, "gems": 450 }` (cost: `HEART_REFILL_COST_GEMS` = 50)
 409 `HEARTS_FULL` · 409 `INSUFFICIENT_GEMS` (`details.required`, `details.available`).
 Naturally idempotent: a double click's second request gets `HEARTS_FULL`, never a double charge.
 
@@ -796,18 +809,19 @@ Query `?limit=30` (1–100).
 ```json
 { "week_start": "2026-10-05", "resets_at": "2026-10-12T00:00:00Z",
   "entries": [{ "rank": 1, "user_id": 7, "display_name": "Mia", "avatar_color": "pink", "xp": 410, "is_current_user": false }],
-  "current_user": { "rank": 4, "xp": 245, "in_top": true } }
+  "current_user": { "rank": 4, "xp": 245 } }
 ```
-The current learner is always reported, with XP 0 and last rank if no entry exists this week.
+Every league member (learner + rivals) is listed, with 0 XP if they have no entry this week — so a
+new week shows the league at 0 rather than an empty board. The current learner is always reported.
 
 #### `GET /api/profile`
 200
 ```json
-{ "user": { "username": "learner", "display_name": "Alex", "avatar_color": "blue", "joined_at": "…" },
+{ "user": { "id": 1, "username": "learner", "display_name": "Alex", "avatar_color": "blue", "joined_at": "…" },
   "stats": { "total_xp": 245, "current_streak": 7, "longest_streak": 12, "lessons_completed": 5,
              "skills_completed": 1, "weekly_xp": 245, "league_rank": 4 },
   "achievements": [{ "code": "first_lesson", "title": "First Steps", "description": "…", "icon": "…",
-                     "earned_at": "…", "progress": 1, "threshold": 1 },
+                     "metric": "lessons_completed", "earned_at": "…", "progress": 1, "threshold": 1 },
                    { "code": "xp_500", "earned_at": null, "progress": 245, "threshold": 500 }] }
 ```
 
@@ -824,38 +838,46 @@ Each exercise type is **one module** that declares four Pydantic models and one 
 @dataclass(frozen=True)
 class CheckResult:
     is_correct: bool
-    correct_answer: str | None      # human-readable solution for feedback
-    note: str | None = None         # e.g. accent nudge
+    correct_answer: str             # human-readable solution for the feedback sheet
+    note: str | None = None         # e.g. accent nudge on an accepted answer
 
-class ExerciseChecker(Protocol[C, S, A]):
-    type: ClassVar[ExerciseType]
-    content_model: type[C]          # learner-visible (goes to client)
-    solution_model: type[S]         # server-only
-    answer_model: type[A]           # request payload
-    def validate_answer(self, content: C, answer: A) -> None: ...   # raises InvalidAnswer
-    def check(self, content: C, solution: S, answer: A) -> CheckResult: ...
-    def validate_definition(self, content: C, solution: S) -> None: ...  # seed-time consistency
+class ExerciseChecker(ABC, Generic[ContentT, SolutionT, AnswerT]):
+    exercise_type: ClassVar[ExerciseType]
+    content_model: type[ContentT]   # learner-visible (goes to client)
+    solution_model: type[SolutionT] # server-only
+    answer_model: type[AnswerT]     # request payload, discriminated by `type`
 
-# domain/exercises/registry.py
-_REGISTRY: dict[ExerciseType, ExerciseChecker] = {}
-def register(checker): _REGISTRY[checker.type] = checker; return checker
-def get_checker(t: ExerciseType) -> ExerciseChecker: return _REGISTRY[t]
+    def evaluate(self, raw_content, raw_solution, answer) -> CheckResult:   # template method:
+        ...                         # answer type check → parse → validate_answer → check
+    def validate_definition(self, raw_content, raw_solution) -> None: ...   # seed-time
+
+    @abstractmethod
+    def check_definition(self, content, solution) -> None: ...
+    @abstractmethod
+    def validate_answer(self, content, answer) -> None: ...                 # raises InvalidAnswer
+    @abstractmethod
+    def check(self, content, solution, answer) -> CheckResult: ...
+    @abstractmethod
+    def sample_correct_answer(self, content, solution) -> AnswerT: ...      # seed/tests only
+
+# domain/exercises/registry.py — explicit, no import-time magic
+CHECKERS = {c.exercise_type: c for c in (MultipleChoiceChecker(), WordBankChecker(), ...)}
 ```
 
-`AnswerService.check()` contains **no `if type == …`**: it loads the exercise, looks up the checker,
-parses `content`/`solution` with the checker's models, calls `validate_answer` then `check`.
-The API's `PublicExercise` and `Answer` unions are assembled from the registered models, so the OpenAPI
-document (and therefore the generated TS types) lists every registered type automatically.
+`AnswerService.check()` contains **no `if type == …`**: it looks up the checker for the exercise
+and calls `evaluate`. The API's `ExerciseOut` and `AnswerIn` unions (`schemas/exercise.py`) list the
+per-type models explicitly (readable and fully typed for mypy); a test fails if a registered type is
+missing from either union, so the OpenAPI document and generated TS types cannot drift.
 
 ### Per-type rules
 
 | Type | Public content | Solution (server) | Answer | Correct when |
 |---|---|---|---|---|
-| `multiple_choice` | `options[{id,text,image?}]`, optional `source_text` | `correct_option_id` | `{option_id}` | ids equal; unknown id → 422 |
+| `multiple_choice` | `options[{id,text,emoji?}]`, optional `source_text` | `correct_option_id` | `{option_id}` | ids equal; unknown id → 422 |
 | `word_bank` | `source_text`, `tiles[{id,text}]` incl. distractors | `accepted[]` (list of token sequences) | `{tile_ids[]}` (ordered) | tile ids → texts, normalised, sequence equals any accepted sequence. **Order matters.** Compared by **text not id**, so duplicate tokens ("the … the") are interchangeable. Duplicate/unknown tile ids → 422 |
 | `match_pairs` | `left[{id,text}]`, `right[{id,text}]` (pre-shuffled) | `pairs{left_id: right_id}` | `{pairs[{left_id,right_id}]}` | submitted set == solution set exactly: each left once, each right once, no extras/missing |
-| `fill_blank` | `before`, `after` (text around the blank), optional `options[]` | `accepted[]` | `{text}` | `normalize(text)` ∈ normalised accepted |
-| `type_answer` | `source_text`, `source_language` | `accepted[]` | `{text}` | `normalize(text)` ∈ normalised accepted; if only an accent-insensitive match → correct with `note` |
+| `fill_blank` | `before`, `after` (text around the blank), `translation?`, optional `options[]` | `accepted[]` | `{text}` | `normalize(text)` ∈ normalised accepted |
+| `type_answer` | `source_text`, `source_language`, `target_language` | `accepted[]` | `{text}` | `normalize(text)` ∈ normalised accepted; if only an accent-insensitive match → correct with `note` |
 
 ### Text normalisation (`domain/text.py`)
 
@@ -909,7 +931,7 @@ All constants live in `backend/app/domain/rules.py` (not env vars — they are p
 |---|---|
 | `MAX_HEARTS` | 5 |
 | `HEART_REGEN_MINUTES` | 30 (one heart per interval) |
-| `HEART_REFILL_COST_GEMS` | 100 |
+| `HEART_REFILL_COST_GEMS` | 50 |
 | `DEFAULT_LESSON_XP` | 10 (per-lesson `xp_reward`) |
 | `PERFECT_LESSON_BONUS_XP` | 5 |
 | `FIRST_COMPLETION_GEMS` | 5 |
@@ -926,7 +948,7 @@ All constants live in `backend/app/domain/rules.py` (not env vars — they are p
   intervals (partial progress kept), or to `now` when full. Applied on every read/write of hearts —
   no background job. `next_heart_at = updated_at + 30 min` when < 5.
 * When hearts drop from 5 → 4, `updated_at = now` (regen clock starts at the first loss).
-* **Refill:** costs 100 gems, sets hearts to 5. `HEARTS_FULL` if already 5; `INSUFFICIENT_GEMS` otherwise.
+* **Refill:** costs 50 gems (`HEART_REFILL_COST_GEMS`), sets hearts to 5. `HEARTS_FULL` if already 5; `INSUFFICIENT_GEMS` otherwise.
 * Idempotent retry of a `check` (same `submission_id`) never deducts twice.
 
 ### XP
@@ -940,7 +962,7 @@ All constants live in `backend/app/domain/rules.py` (not env vars — they are p
 
 ### Lesson completion
 Preconditions (in order): attempt exists and belongs to the learner → attempt is for this lesson →
-status: `completed` ⇒ return stored result (idempotent) / `abandoned` ⇒ 409 → **every exercise of the
+lesson not locked → status `completed` ⇒ return the stored result (idempotent) → **every exercise of the
 lesson has ≥ 1 correct `attempt_answers` row** else `409 LESSON_NOT_FINISHED`.
 Effects (one transaction): mark attempt completed → if first completion: insert
 `user_lesson_progress`, award XP + gems, upsert `user_skill_progress` (`started_at`, and `completed_at`
@@ -1144,7 +1166,7 @@ functions with many transitions are cheaper to cover as unit tests than through 
 | # | Decision | Alternatives | Why / trade-off |
 |---|---|---|---|
 | D1 | Modular monolith (Next.js + FastAPI + SQLite) | microservices, BaaS | Smallest thing that shows clean layering; trivially runnable by the evaluator. |
-| D2 | SQLite | Postgres | Zero setup, file-based, real SQL with FKs, CHECKs, partial indexes. Trade-off: single writer (fine for one learner; mitigated with `BEGIN IMMEDIATE`). Swap = change `DATABASE_URL` + driver, since SQLAlchemy abstracts it. |
+| D2 | SQLite | Postgres | Zero setup, file-based, real SQL with FKs, CHECKs, partial indexes. Trade-off: single writer (fine for one learner; duplicates are stopped by unique constraints). Swap = change `DATABASE_URL` + driver, since SQLAlchemy abstracts it. |
 | D3 | SQLAlchemy 2.0 typed ORM (`Mapped[...]`) | raw SQL, SQLModel | Typed models, relationship mapping, portable SQL; SQLModel blurs model/schema separation that we want explicit. |
 | D4 | Separate Pydantic schemas | return ORM objects | Contract stability, no accidental field leaks (solutions!), drives OpenAPI. Cost: some mapping code. |
 | D5 | Service + pure domain + repository layers | fat routers | Rules are unit-testable without DB/HTTP; routers trivially readable. Cost: more files — kept proportionate (no generic repository base class, no DI container). |
@@ -1265,7 +1287,7 @@ After check → FeedbackBar slides up and replaces the footer:
 ```
 Completion screen: celebratory illustration (original SVG), "Lesson complete!", three StatCards
 (Total XP, Accuracy, Streak) counting up, newly earned achievements, CTA "Continue" → `/learn`.
-Out-of-hearts: modal with broken-heart illustration, "Refill (100 gems)" and "Quit lesson".
+Out-of-hearts: modal with broken-heart illustration, "Refill (50 gems)" and "Quit lesson".
 Keyboard: Enter = Check/Continue, 1–9 select options/tiles.
 
 ---
@@ -1274,14 +1296,14 @@ Keyboard: Enter = Check/Continue, 1–9 select options/tiles.
 
 1. **Why SQLite?** Zero-setup, real relational guarantees (FKs, CHECK, partial unique indexes), single
    file the evaluator can inspect. Weakness: one writer at a time — irrelevant for one learner, handled
-   with `BEGIN IMMEDIATE`. Swapping to Postgres is a URL change thanks to SQLAlchemy.
+   by unique constraints on every idempotency key. Swapping to Postgres is a URL change thanks to SQLAlchemy.
 2. **Why SQLAlchemy + separate Pydantic schemas?** Models describe storage; schemas describe the
    contract. The lesson response *cannot* leak a solution because the schema has no such field.
 3. **Why a service layer + pure domain?** Routers handle HTTP, services orchestrate a use-case in one
    transaction, domain functions hold rules as pure functions → most tests need no DB at all.
 4. **How is duplicate XP prevented?** Three layers: attempt status (completed attempts return the
    stored result), `UNIQUE(user_id, lesson_id)` on lesson progress, `UNIQUE(attempt_id, source)` on the
-   XP ledger — inside one `BEGIN IMMEDIATE` transaction.
+   XP ledger — all in one transaction; a losing concurrent duplicate rolls back and replays the result.
 5. **Why can't a client just call `/complete`?** Completion requires a server-created attempt in which
    every exercise of that lesson has a server-checked correct answer.
 6. **How is a retried answer prevented from costing two hearts?** Client sends a `submission_id`; it's
@@ -1294,7 +1316,7 @@ Keyboard: Enter = Check/Continue, 1–9 select options/tiles.
 9. **How is the streak calculated?** Incremental rule on lesson completion (same day / yesterday / gap)
    with local learning day from the injected clock; display decays at read time — no cron.
 10. **How do hearts regenerate without a job?** Store count + anchor timestamp; compute elapsed whole
-    intervals when read; persist the normalised value.
+    intervals when read (pure); persist only when hearts change.
 11. **How does unlocking work?** Pure function over global skill order + completed set; server enforces
     with 403, UI only reflects it.
 12. **Why TanStack Query *and* a reducer?** Different problems: cache/invalidate server data vs.
@@ -1315,7 +1337,7 @@ Keyboard: Enter = Check/Continue, 1–9 select options/tiles.
 | Path contains spaces (`Duolingo Web App`) | Quoting issues in npm scripts / Playwright `webServer` commands on Windows | Quote paths; prefer relative `cwd` options; verify early in Phase 1. |
 | Library version drift (Next.js 15→16, Tailwind v4 CSS-first config, `framer-motion` → `motion`) | Docs/snippets mismatch | Pin exact versions in Phase 1; note them here. |
 | SQLite FK enforcement is opt-in | Silent orphan rows | Connect-event `PRAGMA foreign_keys=ON` + a test asserting it's on. |
-| Bots' leaderboard XP is seeded relative to the seed date | After a week rollover bots show 0 XP | Document `python -m app.seed --reset`; Phase 2 option: bots' weekly XP generated deterministically per week on first leaderboard read. |
+| Bots' leaderboard XP is seeded relative to the seed date | After a week rollover bots show 0 XP | **Mitigated in Phase 1:** the board always lists every member (never empty) and `python -m app.seed` (idempotent) gives rivals XP for the new week. |
 | Replay = 0 XP may feel unrewarding / conflict with evaluator expectation | UX/criteria ambiguity | Single constant; decision D19 documented — confirm with user. |
 | `match_pairs` lacks per-tap instant feedback | Less faithful UX | Show local "selected/paired" animations; full-set check on submit. Alternative (if desired): treat pairs as non-secret and verify locally, still re-checked server-side. |
 | Seed content volume (all 5 types across ~15 lessons) is real work | Thin demo | Author content JSON early in Phase 1 with validation tests. |
@@ -1324,3 +1346,142 @@ Keyboard: Enter = Check/Continue, 1–9 select options/tiles.
 | Frontend unit tests not in stated stack | Reducer bugs found late via E2E | Recommend adding Vitest (tiny) — needs user approval. |
 | Accessibility of tactile/animated UI | UX criterion | Roles/labels from the start, focus-visible styles, reduced-motion support. |
 | Abandoned in-progress attempts accumulate | Minor clutter | One active per lesson (partial unique index); harmless. |
+
+---
+
+## 14. Phase 1 implementation notes
+
+The Phase 0 architecture was implemented as designed. These are the deliberate refinements made while
+implementing it — each is the minimum change, and the sections above have been updated to match.
+
+| # | Area | Phase 0 | Phase 1 | Why |
+|---|---|---|---|---|
+| P1 | Refill price | 100 gems | **50 gems** (`HEART_REFILL_COST_GEMS`) | Phase 1 requirement; one named constant. |
+| P2 | Concurrency | `BEGIN IMMEDIATE` + unique constraints | **Unique constraints only**; a losing duplicate rolls back and replays the stored result | Same exactly-once guarantee, less SQLite-specific machinery; pysqlite transaction control is awkward to make explicit. |
+| P3 | Hearts on read | regenerate and persist | **Regenerate on read, never write**; persist on the next heart change | Reads stay side-effect free (same rule as the streak); simpler and easier to test. |
+| P4 | Attempt status | `in_progress`, `completed`, `abandoned` | `in_progress`, `completed` | Nothing ever abandoned an attempt (resume replaces it) — YAGNI. |
+| P5 | Error codes | `ATTEMPT_LESSON_MISMATCH`, `EXERCISE_NOT_IN_LESSON`, `ANSWER_TYPE_MISMATCH`, `ATTEMPT_NOT_ACTIVE` | `ATTEMPT_INVALID`, `EXERCISE_NOT_FOUND`, `INVALID_ANSWER`, `ALREADY_COMPLETED`, plus `DUPLICATE_SUBMISSION` | Aligned with the Phase 1 error vocabulary; errors are mapped by category in one table. |
+| P6 | Exercise unions | assembled from the registry | **explicit** in `schemas/exercise.py` + guard test | Fully typed under `mypy --strict`, readable; the test keeps registry and unions in sync. |
+| P7 | Seed content | JSON files | **Python specs + deterministic builder** | Each lesson is authored as 4 words + 3 sentences; the builder produces 7 exercises covering all 5 types and validates them through the checkers. Typed, compact, impossible to forget a type. |
+| P8 | Course size | 2 units / 6 skills / 15 lessons | **3 units / 9 skills / 18 lessons / 126 exercises** | Phase 1 requirement. |
+| P9 | Leaderboard rollover | rivals' XP seeded once | Board lists **every league member** (0 XP when no entry); the seed gives rivals deterministic XP for the current week, once per week | A new week never shows an empty board; re-running the seed in a new week refreshes rivals (idempotent). |
+| P10 | Demo progress | not specified | `python -m app.seed` plays 3 lessons **through the real services** with a FixedClock in the past (skill 1 completed, skill 2 started, 2-day streak) | Seeded state obeys exactly the same rules as real play; `--no-demo` / the test reset start fresh. |
+| P11 | Timestamps | `DateTime(timezone=True)` | `UTCDateTime` type decorator | SQLite returns naive datetimes; the decorator guarantees aware UTC everywhere. |
+| P12 | Test client | httpx | **httpx2** | Starlette 1.x deprecates httpx for its TestClient. |
+
+### Running the backend
+
+```bash
+cd backend
+py -3.11 -m venv .venv
+.venv\Scripts\pip install -r requirements-dev.txt
+.venv\Scripts\python -m app.seed --reset        # create + seed data/app.db (with demo progress)
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+.venv\Scripts\python -m pytest                  # 189 tests
+.venv\Scripts\ruff check app tests ; .venv\Scripts\mypy
+```
+
+---
+
+## 15. Phase 2 implementation notes
+
+Frontend foundation: design system, app shell, stats, learning path, skill dialog, leaderboard,
+profile, settings and a lesson-route placeholder — all powered by the real API.
+
+### Pinned versions (exact, in `frontend/package.json`)
+
+| Package | Version | Note |
+|---|---|---|
+| next / react / react-dom | 16.3.8 / 19.3.0 / 19.3.0 | App Router, Turbopack default |
+| typescript | **5.9.3** | TS 7.0 is current, but `openapi-typescript` requires `^5` |
+| tailwindcss + @tailwindcss/postcss | 4.3.3 | CSS-first `@theme` tokens |
+| @tanstack/react-query | 5.104.1 | server state |
+| motion | 14.0.0 | the renamed Framer Motion (`motion/react`) |
+| lucide-react | 1.52.0 | icons |
+| openapi-typescript / openapi-fetch | 7.13.0 / 0.17.0 | contract → types → typed fetch |
+| eslint / eslint-config-next | **9.39.5** / 16.3.8 | ESLint 10 crashes `eslint-plugin-react` (bundled by the Next config) |
+| @playwright/test | 1.63.0 | Chromium only |
+
+### Data flow
+
+```
+openapi.json ──gen:api──► lib/api/schema.d.ts ──► lib/api/client.ts (openapi-fetch + request())
+                                                        │ throws ApiError (http | validation | network | unknown)
+                                                        ▼
+                                hooks/api/*  (TanStack Query, keys from lib/api/queryKeys.ts)
+                                                        ▼
+                                features/*  ──► components/ui  (ErrorState translates ApiError → friendly copy)
+```
+
+* `types/api.ts` only **aliases** generated schemas — no hand-written API interfaces.
+* `request()` is the single place responses are unwrapped; `friendlyError()` the single place
+  errors become copy. Learner-facing backend messages (e.g. `LESSON_LOCKED`) are shown; anything
+  else becomes "Something went wrong" — never status codes or exception text.
+* Query defaults: `staleTime` 30 s; retry only network/5xx (max 2); lesson content `staleTime: ∞`.
+* `invalidateLearnerState(queryClient)` invalidates user, progress, hearts, course (path + skills),
+  leaderboard and profile — the hook Phase 3 calls after answers/completion. Lesson content is
+  immutable and excluded.
+* Hearts regenerate server-side; `useHeartRegenRefresh` schedules one refetch at
+  `hearts.next_heart_at` instead of polling.
+
+### Learning path
+
+* `pathLayout.ts` (pure): x as a **fraction of track width** from a sine-like wave indexed by the
+  skill's position in the *whole course* (the snake continues across units); y in px. Nodes use
+  `left: x%`; connectors are drawn in an SVG with `viewBox="0 0 100 H"`,
+  `preserveAspectRatio="none"` and `vector-effect: non-scaling-stroke`. Result: responsive geometry
+  with **no DOM measurement**, identical on server and client, no layout shift (the skeleton uses
+  the same function).
+* Node visuals come from the backend status only (`skillPresentation.ts` maps status → colour,
+  label, badge). Locked = grey + padlock; available = unit colour + empty ring; in progress = unit
+  colour + partial ring + "n/m"; completed = gold + crown + full ring. The current skill
+  (`current_skill_id` from the API) gets the bouncing START/CONTINUE bubble — the only looping
+  animation.
+* Labels sit beside nodes (towards the centre) so they never collide with the bubble or connectors.
+* Unit banners are sticky under the shell chrome (`--shell-top` per breakpoint).
+* Clicking a node opens `SkillDetailDialog` — **Modal ≥768px, BottomSheet below** (drag to dismiss).
+  Summary renders instantly from path data; the lesson list streams in from `GET /api/skills/{id}`.
+  Start navigates to `/lesson/{next_lesson_id}`; locked skills explain which skill unlocks them.
+
+### Design system
+
+* `styles/tokens.css` disables Tailwind's default palette (`--color-*: initial`) — features can only
+  use the named tokens (leaf, sun, cherry, sky, grape, ember, ink, muted, line, locked…).
+* `tactile` utility: solid offset edge (`--tactile-edge`), lifts 1px on hover (pointer devices
+  only), presses down on `:active`; disabled buttons drop the edge. Used by buttons, path nodes,
+  setting tiles.
+* Primitives: Button/ButtonLink, IconButton (label required by type), Card, Badge, Pill, Modal,
+  BottomSheet, ResponsiveDialog, ProgressRing, ProgressBar, StatCard, Avatar, Skeleton, Toast,
+  ErrorState. Modal/BottomSheet share `DialogFrame` (portal, Escape, focus trap + restore,
+  scroll lock, `focus({preventScroll})`).
+* Motion: `MotionConfig reducedMotion="user"` + a CSS `prefers-reduced-motion` guard; entrance
+  `whileInView` once per node; stat pills bounce/shake/pulse only when their value changes
+  (`useValueChange`, no refs/effects).
+
+### Responsive shell (`AppShell` with slots)
+
+| Width | Navigation | Stats | Extra |
+|---|---|---|---|
+| < 768 | bottom tab bar (56px targets, safe-area) | sticky header with flag | dialogs are bottom sheets |
+| 768–1023 | 88px icon rail | sticky strip above content | |
+| 1024–1279 | 240px labelled sidebar | sticky strip | |
+| ≥ 1280 | labelled sidebar | right rail | daily goal + league preview cards |
+
+`AppShell` (in `components/layout`) receives the stats/rail widgets as **slots** from
+`app/(main)/layout.tsx`, so generic layout code never imports features.
+
+### Testing
+
+Playwright starts the real FastAPI (`:8001`, `data/e2e.db`, test routes on) and a production
+Next build (`:3100`, `.next-e2e`). Every test resets the database through `POST /api/test/reset`
+and compares the UI against live API responses (no hard-coded stats). Projects: `desktop`
+(1440×900) and `mobile` (Pixel 7) + a 375px phone spec. 26 tests.
+
+### Phase 2 refinements to earlier docs
+
+| Phase 0 plan | Phase 2 | Why |
+|---|---|---|
+| Skill popover anchored to node | Modal / bottom sheet | Phase 2 requirement; better on touch |
+| Labels under nodes | Labels beside nodes | Avoids collisions with START bubble |
+| Settings not planned | Settings page with real daily-goal update (`PATCH /api/users/me`) | Uses an existing endpoint; demonstrates mutations + toasts |
+| Lesson page in Phase 3 | Placeholder that loads the real lesson (locked → backend 403 shown) | Start Lesson has a real destination without faking a lesson |
