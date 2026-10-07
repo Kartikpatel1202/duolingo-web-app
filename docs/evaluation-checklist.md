@@ -62,7 +62,7 @@ Section links point into [architecture.md](architecture.md).
 | Entry flow: landing (site language, Login, Get started), onboarding | `features/entry/*` | `e2e/entry.spec.ts` | ☑ |
 | Sign up (email + password + confirm), sign in with the same credentials, persisted session, logout, protected routes | `domain/auth.py`, `AuthService.signup/login`, `get_current_user`; `lib/auth/session.ts`, `AuthGate`, `SignupView`, `LoginView` | `integration/test_auth.py`; `e2e/auth.spec.ts` (incl. register → log out → log in) | ☑ |
 | Shareable demo link (`/demo`): one click signs in as the seeded learner; off unless `ENABLE_DEMO_LOGIN` is set | `AuthService.demo_login`, `POST /api/auth/demo`; `DemoLoginView`, `useDemoLogin` | `integration/test_auth.py` (demo link); `e2e/auth.spec.ts` (Demo link) | ☑ |
-| Bonus: achievement badges (grid, detail dialog, unlock animation) | `features/profile/AchievementGrid.tsx`, `illustrations/BadgeArt.tsx` | e2e `profile shows overview stats and an achievement detail` | ☑ |
+| Bonus: achievement badges (grid, detail dialog, unlock animation) | `features/profile/AchievementGrid.tsx`, `illustrations/Badge.tsx` (`BadgeArt`) | e2e `profile shows overview stats and an achievement detail` | ☑ |
 | Bonus: dark mode (light/dark/system, persisted, no flash) | `lib/theme.ts` boot script, `[data-theme=dark]` tokens | e2e `dark mode applies instantly…`, `light mode overrides…` | ☑ |
 | Navigation: 5 tabs + More sheet, stat hover cards (streak, XP, gems, hearts), course switcher, reminder banner | `components/layout/*`, `features/stats/*` (`StatPopover`) | e2e `bottom tabs and the More sheet…`, `top bar stats open their cards…`, `reminder banner…` | ☑ |
 | Sound effects (recordings in `public/sounds`, Web Audio fallback, toggle) + speaking animation | `lib/sfx.ts`, `AudioButton` | e2e `sound effects can be switched off` | ☑ |
@@ -83,7 +83,7 @@ Section links point into [architecture.md](architecture.md).
 | Guidebook content tree with one-per-unit, ordering and cascade rules | `models/guidebook.py` (UNIQUE unit_id, UNIQUE(parent, position), enum CHECKs, CASCADE) | `integration/test_guidebook.py` (8 tests) | ☑ |
 | Idempotent gem purchases with a spending ledger | `shop_purchases` UNIQUE(user_id, purchase_id), `ShopService.purchase` | `test_engagement.py::test_a_retried_purchase_is_charged_once`, `::test_a_rejected_purchase_charges_nothing…` | ☑ |
 | One-off rewards claimed once | `reward_claims` UNIQUE(user_id, reward_key) | `test_engagement.py::test_claiming_a_quest_once`, `::test_unit_chest_unlocks…` | ☑ |
-| Units grouped into sections without a redundant entity | `units.section` + `CHECK (section >= 1)` | `test_seed_shape`, `test_fresh_path_has_only_the_first_skill_available` | ☑ |
+| Units grouped into sections without a redundant entity | `units.section` + `CHECK (section >= 1)` | `test_seed_shape`, `test_fresh_path_opens_only_the_first_skill_of_each_unit` | ☑ |
 | Deterministic, idempotent seed | `seed/*` | `test_seed_is_idempotent`, `test_seed_is_deterministic`, `test_demo_progress_is_played_once` | ☑ |
 
 ## 4. Backend / API design

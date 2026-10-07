@@ -32,7 +32,8 @@ test.describe("Entry: landing, login and get started", () => {
 
   test("the landing page is white even when the learner chose dark mode", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("lingo-theme", "dark"));
-    await page.goto("/");
+    // Signed out: with a session both the landing and the login page redirect to the path.
+    await openLandingSignedOut(page);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
 
@@ -48,13 +49,16 @@ test.describe("Entry: landing, login and get started", () => {
       if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`);
     });
 
-    await page.goto("/");
-    await expect(page.getByRole("banner").getByRole("link", { name: /home$/ })).toBeVisible();
-    await expect(page.getByRole("main").locator("img").first()).toBeVisible();
-
+    // The signed-in app first (the landing page would redirect here while a session exists)…
     await page.goto("/learn");
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     await expect(page.locator("[data-mascot]").first()).toBeAttached();
+
+    // …then the landing page, signed out.
+    await page.evaluate((key) => window.localStorage.removeItem(key), SESSION_STORAGE_KEY);
+    await page.goto("/");
+    await expect(page.getByRole("banner").getByRole("link", { name: /home$/ })).toBeVisible();
+    await expect(page.getByRole("main").locator("img").first()).toBeVisible();
 
     expect(failed.filter((entry) => entry.includes("/brand/"))).toEqual([]);
     expect(failed).toEqual([]);

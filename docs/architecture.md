@@ -86,49 +86,63 @@ Font: **Nunito** (Google Fonts, OFL) — rounded and friendly, an open alternati
 frontend/
 ├── src/
 │   ├── app/                         # ROUTING + PAGE COMPOSITION ONLY
-│   │   ├── layout.tsx               # <html>, font, <Providers>
-│   │   ├── providers.tsx            # QueryClientProvider, ToastProvider, MotionConfig
-│   │   ├── globals.css              # Tailwind import + @theme design tokens
-│   │   ├── page.tsx                 # redirect → /learn
-│   │   ├── (main)/                  # route group: app shell (side nav / bottom nav)
-│   │   │   ├── layout.tsx           # <AppShell>
-│   │   │   ├── learn/page.tsx       # learning path
-│   │   │   ├── leaderboard/page.tsx
-│   │   │   └── profile/page.tsx
-│   │   └── (lesson)/                # route group: full-screen, no nav
-│   │       └── lesson/[lessonId]/page.tsx
+│   │   ├── layout.tsx               # <html>, font, theme boot script, <Providers>
+│   │   ├── providers.tsx            # QueryClientProvider, MotionConfig, ToastProvider
+│   │   ├── globals.css              # Tailwind import, dark-theme token overrides, `tactile`
+│   │   ├── page.tsx                 # landing page
+│   │   ├── (entry)/                 # public: login, welcome (sign-up), demo
+│   │   ├── (main)/                  # signed-in app shell (AuthGate + AppShell)
+│   │   │   └── learn (+ learn/guidebook/[unitId]), leaderboard, quests, shop,
+│   │   │       profile, streak, feed, settings
+│   │   └── (lesson)/                # signed-in, full-screen, no nav
+│   │       ├── lesson/[lessonId]/page.tsx
+│   │       └── jump/[unitId]/page.tsx
 │   ├── components/                  # REUSABLE, DOMAIN-AGNOSTIC UI
-│   │   ├── ui/                      # Button, Card, Modal, Toast, Badge, ProgressRing, ProgressBar,
-│   │   │                            # StatCard, IconButton, Skeleton, FeedbackBar, Tooltip
-│   │   ├── icons/                   # original inline SVG icons (Heart, Flame, Gem, Bolt, Lock, Crown…)
-│   │   └── layout/                  # AppShell, SideNav, BottomNav, TopStatsBar, RightRail
+│   │   ├── ui/                      # Button, Card, Modal, BottomSheet, ResponsiveDialog, DialogFrame,
+│   │   │                            # Toast, Badge, Pill, Avatar, ProgressRing, ProgressBar, StatCard,
+│   │   │                            # IconButton, Skeleton, ErrorState, AudioButton, tones.ts
+│   │   ├── icons/                   # BrandLogo, CourseFlag, NavIcons, LookupIcon
+│   │   ├── illustrations/           # DuoMascot, Mascot, Chest, Trophy, Flame, Badge (BadgeArt)
+│   │   └── layout/                  # AppShell, SideNav, BottomNav, MoreMenu, StickyRail, navItems.ts
 │   ├── features/                    # DOMAIN UI + BEHAVIOUR
-│   │   ├── path/                    # LearningPath, UnitHeader, SkillNode, PathConnector,
-│   │   │                            # SkillPopover, pathLayout.ts (zig-zag offsets)
-│   │   ├── lesson/                  # LessonPlayer, LessonHeader, LessonFooter, LessonComplete,
-│   │   │   │                        # OutOfHeartsModal, lessonReducer.ts, useLessonSession.ts
-│   │   │   └── exercises/           # registry.ts, ExerciseRenderer.tsx, one folder per type
-│   │   ├── stats/                   # StreakBadge, HeartsBadge, GemsBadge, DailyGoalCard
-│   │   ├── leaderboard/             # LeaderboardTable, LeaderboardRow, WeekCountdown
-│   │   └── profile/                 # ProfileHeader, StatsGrid, AchievementList
+│   │   ├── entry/                   # LandingView, LoginView, SignupView, DemoLoginView, AuthPage
+│   │   ├── auth/                    # AuthGate (route guard)
+│   │   ├── path/                    # LearnView, UnitSection, UnitHeader, PathTrack, SkillNode, CoinNode,
+│   │   │                            # ChestNode, TrophyNode, LessonIntro, SkillDetailDialog,
+│   │   │                            # unitArt.ts (per-unit look), pathLayout.ts
+│   │   ├── lesson/                  # LessonScreen, LessonPlayer, JumpAheadScreen
+│   │   │   ├── components/          # LessonHeader, LessonFooter, FeedbackBar, ExitLessonDialog,
+│   │   │   │                        # OutOfHeartsDialog, LessonStates, celebration/
+│   │   │   ├── exercises/           # registry.tsx, ChoiceTile, one component per exercise type
+│   │   │   ├── hooks/               # useLessonSession, useLessonKeyboard, …
+│   │   │   └── state/lessonMachine.ts
+│   │   ├── guidebook/               # GuidebookView, sections.tsx, PhraseCard, Highlighted
+│   │   ├── stats/                   # StatsBar, StatPopover, CourseSwitcher, StreakMenu, XpMenu,
+│   │   │                            # GemsMenu, HeartsMenu, DailyGoalCard, ReminderBanner
+│   │   ├── leaderboard/             # LeaderboardView, LeaderboardRow, LeaguePreviewCard
+│   │   ├── profile/                 # ProfileView, AchievementGrid
+│   │   └── quests/, shop/, streak/, feed/, settings/
 │   ├── hooks/
-│   │   ├── api/                     # useCurrentUser, useCoursePath, useSkill, useLesson,
-│   │   │                            # useProgress, useProfile, useLeaderboard (queries)
-│   │   │                            # useStartAttempt, useCheckAnswer, useCompleteLesson,
-│   │   │                            # useRefillHearts (mutations)
-│   │   └── useMediaQuery.ts, useKeyboardShortcut.ts, usePrefersReducedMotion.ts
+│   │   ├── api/                     # useAuth, useLearner, useCourse, useLessonApi, useEngagement,
+│   │   │                            # useCommunity (TanStack Query hooks, one file per area)
+│   │   └── useSession.ts, useSpeech.ts, useSoundEffects.ts, useTheme.ts, useMediaQuery.ts
 │   ├── lib/
 │   │   ├── api/
 │   │   │   ├── schema.d.ts          # GENERATED from OpenAPI — never edited by hand
-│   │   │   ├── client.ts            # openapi-fetch instance + error normalisation → ApiError
+│   │   │   ├── client.ts            # openapi-fetch instance, bearer token, 401 handling
+│   │   │   ├── errors.ts            # error normalisation → ApiError
+│   │   │   ├── queryClient.ts
 │   │   │   └── queryKeys.ts         # single query-key factory
+│   │   ├── auth/session.ts          # session token in localStorage
+│   │   ├── sfx.ts, theme.ts, brand.ts, format.ts, ids.ts
 │   │   ├── motion.ts                # shared animation variants/springs
 │   │   └── cn.ts                    # className helper
 │   ├── types/
 │   │   └── api.ts                   # friendly aliases: type Lesson = components["schemas"]["LessonOut"]
 │   └── styles/
 │       └── tokens.css               # CSS custom properties consumed by @theme
-├── e2e/                             # Playwright specs + fixtures
+├── public/brand, public/sounds      # artwork and sound effects
+├── e2e/                             # Playwright specs, fixtures.ts, lesson-driver.ts
 ├── openapi.json                     # exported contract snapshot (committed)
 ├── playwright.config.ts
 └── .env.example
@@ -199,18 +213,21 @@ backend/
 │   │   └── types.py                 # UTCDateTime, str_enum (portable CHECK-constrained enums)
 │   ├── models/                      # SQLAlchemy ORM (persistence shape only)
 │   │   ├── content.py               # Course, Unit, Skill, Lesson, Exercise
+│   │   ├── guidebook.py             # Guidebook, GuidebookSection, GuidebookEntry
 │   │   ├── user.py                  # User
 │   │   ├── progress.py              # LessonAttempt, AttemptAnswer, UserLessonProgress, UserSkillProgress
-│   │   └── gamification.py          # XpEvent, LeaderboardEntry, Achievement, UserAchievement
+│   │   └── gamification.py          # XpEvent, LeaderboardEntry, Achievement, UserAchievement,
+│   │                                # StreakFreezeUse, ShopPurchase, RewardClaim
 │   ├── schemas/                     # Pydantic API contracts (request/response)
 │   │   ├── common.py                # ApiModel, ErrorResponse, HeartsOut, StreakOut, DailyGoalOut
 │   │   ├── exercise.py              # ExerciseOut / AnswerIn discriminated unions
-│   │   └── user.py, course.py, lesson.py, progress.py, gamification.py
+│   │   └── auth.py, user.py, course.py, lesson.py, progress.py, gamification.py, engagement.py
 │   ├── api/
 │   │   ├── deps.py                  # session, clock, ServiceContext, current user, service factories
 │   │   ├── responses.py             # documented error responses for OpenAPI
-│   │   └── routers/                 # health, users, courses (+skills), lessons, progress,
-│   │                                # gamification (hearts/leaderboard/profile), test_support
+│   │   └── routers/                 # health, auth, users, courses (+skills, guidebook), lessons,
+│   │                                # progress, gamification (hearts/leaderboard/profile),
+│   │                                # engagement (streak/shop/quests/chest/feed), test_support
 │   ├── services/                    # use-cases; each mutating method owns its commit
 │   │   ├── context.py               # ServiceContext(session, clock, timezone)
 │   │   ├── course_progress.py       # CourseProgress read model: every lock/unlock decision
@@ -221,7 +238,10 @@ backend/
 │   │   ├── hearts_service.py        # pure read with regeneration; lose; refill
 │   │   ├── stats_service.py         # total/daily XP, displayed streak
 │   │   ├── xp_service.py            # the ONLY writer of XpEvent + LeaderboardEntry
-│   │   └── achievement_service.py, leaderboard_service.py, profile_service.py
+│   │   ├── auth_service.py          # sign-up, login, session tokens
+│   │   ├── achievement_service.py, leaderboard_service.py, profile_service.py
+│   │   └── guidebook_service.py, streak_service.py, shop_service.py, quest_service.py,
+│   │       reward_service.py, feed_service.py
 │   ├── domain/                      # PURE functions/values; no Session, no FastAPI, no clock
 │   │   ├── enums.py, rules.py, errors.py
 │   │   ├── hearts.py                # regenerate(), lose_heart(), refill()
@@ -231,22 +251,25 @@ backend/
 │   │   ├── leaderboard.py           # week_start(), rank_standings()
 │   │   ├── achievements.py          # newly_earned()
 │   │   ├── text.py                  # normalize(), match_text()
+│   │   ├── auth.py                  # password hashing, signed tokens
+│   │   ├── challenge.py, quests.py, rewards.py, shop.py, feed.py
 │   │   └── exercises/
 │   │       ├── base.py              # ExerciseChecker ABC, CheckResult
 │   │       ├── registry.py          # CHECKERS: type → checker
 │   │       └── multiple_choice.py, word_bank.py, match_pairs.py, fill_blank.py, type_answer.py
 │   ├── repositories/                # named queries per aggregate; no rules
-│   │   └── content_, user_, attempt_, progress_, xp_, achievement_repository.py
+│   │   └── content_, user_, attempt_, progress_, xp_, achievement_, reward_repository.py
 │   └── seed/
 │       ├── specs.py                 # authoring format (words + sentences per lesson)
 │       ├── spanish_course.py        # the course content (Section 1: 10 units, see §22)
+│       ├── guidebooks.py            # one guidebook per unit
 │       ├── builder.py               # lesson spec → 7 exercises covering all 5 types
 │       ├── people.py                # learner, rivals (weekly pace), achievement catalog
 │       ├── seeder.py                # idempotent upserts, rival week, demo progress
 │       └── __main__.py              # `python -m app.seed [--reset] [--no-demo]`
 ├── scripts/export_openapi.py        # → frontend/openapi.json
 ├── tests/
-│   ├── conftest.py                  # in-memory app per test, FixedClock, seeded content
+│   ├── conftest.py                  # in-memory app per test, FixedClock, seeded content, signed-in client
 │   ├── helpers.py                   # Api driver; correct/wrong answers derived from solutions
 │   ├── unit/                        # domain: checkers, text, streak, hearts, unlocks, xp, weeks
 │   └── integration/                 # HTTP: lesson loop, idempotency, time rules, contract
@@ -260,7 +283,7 @@ backend/
 | Layer | Knows about | Must not know about | Example |
 |-------|-------------|---------------------|---------|
 | Router | FastAPI, schemas, a service | SQL, rules | `return service.check_answer(user, lesson_id, body)` |
-| Schema | Pydantic | ORM | `CheckAnswerRequest`, `LessonOut` |
+| Schema | Pydantic | ORM | `CheckAnswerIn`, `LessonOut` |
 | Service | repositories, domain, Session, Clock | HTTP status codes (raises `DomainError`s) | open transaction, load attempt, call checker, apply heart rule, persist |
 | Domain | plain Python / Pydantic value objects | DB, HTTP, `datetime.now()` | `advance_streak(state, today) -> StreakState` |
 | Repository | SQLAlchemy | rules | `attempt_repo.get_active(user_id, lesson_id)` |
@@ -348,31 +371,208 @@ deliberate exceptions (streak state, weekly leaderboard XP) are documented with 
 
 ### Entity–relationship diagram
 
+Generated from the SQLAlchemy models (`backend/app/models`), all 20 tables:
+
 ```mermaid
 erDiagram
-    COURSE ||--o{ UNIT : contains
-    UNIT ||--o{ SKILL : contains
-    SKILL ||--o{ LESSON : contains
-    LESSON ||--o{ EXERCISE : contains
+    courses {
+        int id PK
+        string slug UK
+        string title
+        string learning_language
+        string from_language
+        text description
+    }
+    units {
+        int id PK
+        int course_id FK
+        int position
+        int section
+        string title
+        string description
+        string theme
+    }
+    skills {
+        int id PK
+        int unit_id FK
+        int position
+        string title
+        string icon
+        string description
+    }
+    lessons {
+        int id PK
+        int skill_id FK
+        int position
+        string title
+        int xp_reward
+    }
+    exercises {
+        int id PK
+        int lesson_id FK
+        int position
+        string type
+        string prompt
+        json content
+        json solution
+        text explanation
+    }
+    guidebooks {
+        int id PK
+        int unit_id FK,UK
+        string introduction
+    }
+    guidebook_sections {
+        int id PK
+        int guidebook_id FK
+        int position
+        string kind
+        string title
+        text body
+        string term_heading
+        string translation_heading
+        string highlights
+        text footer
+        string layout
+    }
+    guidebook_entries {
+        int id PK
+        int section_id FK
+        int position
+        string kind
+        string text
+        string translation
+    }
+    users {
+        int id PK
+        string username UK
+        string display_name
+        string email UK
+        string password_hash
+        string avatar_color
+        bool is_bot
+        int current_course_id FK
+        int daily_goal_xp
+        int hearts
+        datetime hearts_updated_at
+        int gems
+        int streak_freezes
+        int current_streak
+        int longest_streak
+        date last_activity_date
+        datetime created_at
+    }
+    lesson_attempts {
+        string id PK
+        int user_id FK
+        int lesson_id FK
+        string mode
+        string status
+        datetime started_at
+        datetime completed_at
+    }
+    attempt_answers {
+        int id PK
+        string attempt_id FK
+        int exercise_id FK
+        string submission_id
+        json answer
+        bool is_correct
+        datetime created_at
+    }
+    user_lesson_progress {
+        int id PK
+        int user_id FK
+        int lesson_id FK
+        string first_attempt_id FK,UK
+        datetime completed_at
+    }
+    user_skill_progress {
+        int id PK
+        int user_id FK
+        int skill_id FK
+        datetime started_at
+        datetime completed_at
+    }
+    xp_events {
+        int id PK
+        int user_id FK
+        string lesson_attempt_id FK
+        string source
+        int amount
+        datetime earned_at
+        date earned_on
+    }
+    leaderboard_entries {
+        int id PK
+        int user_id FK
+        date week_start
+        int xp
+        datetime updated_at
+    }
+    achievements {
+        int id PK
+        string code UK
+        string title
+        string description
+        string icon
+        string metric
+        int threshold
+    }
+    user_achievements {
+        int id PK
+        int user_id FK
+        int achievement_id FK
+        string lesson_attempt_id FK
+        datetime earned_at
+    }
+    reward_claims {
+        int id PK
+        int user_id FK
+        string reward_key
+        int gems
+        datetime claimed_at
+    }
+    shop_purchases {
+        int id PK
+        int user_id FK
+        string purchase_id
+        string item_id
+        int price_gems
+        datetime purchased_at
+    }
+    streak_freeze_uses {
+        int id PK
+        int user_id FK
+        date used_on
+    }
 
-    USER }o--o| COURSE : "current course"
-    USER ||--o{ USER_LESSON_PROGRESS : completes
-    LESSON ||--o{ USER_LESSON_PROGRESS : "completed by"
-    USER ||--o{ USER_SKILL_PROGRESS : progresses
-    SKILL ||--o{ USER_SKILL_PROGRESS : "progressed by"
-
-    USER ||--o{ LESSON_ATTEMPT : starts
-    LESSON ||--o{ LESSON_ATTEMPT : "attempted in"
-    LESSON_ATTEMPT ||--o{ ATTEMPT_ANSWER : records
-    EXERCISE ||--o{ ATTEMPT_ANSWER : "answered in"
-
-    USER ||--o{ XP_EVENT : earns
-    LESSON_ATTEMPT |o--o{ XP_EVENT : "source of"
-    USER ||--o{ LEADERBOARD_ENTRY : "ranked in week"
-
-    ACHIEVEMENT ||--o{ USER_ACHIEVEMENT : "awarded as"
-    USER ||--o{ USER_ACHIEVEMENT : earns
-    LESSON_ATTEMPT |o--o{ USER_ACHIEVEMENT : "triggered by"
+    courses ||--o{ units : "has"
+    units ||--o{ skills : "has"
+    skills ||--o{ lessons : "has"
+    lessons ||--o{ exercises : "has"
+    units ||--o| guidebooks : "explains"
+    guidebooks ||--o{ guidebook_sections : "has"
+    guidebook_sections ||--o{ guidebook_entries : "has"
+    courses |o--o{ users : "current course of"
+    users ||--o{ lesson_attempts : "plays"
+    lessons ||--o{ lesson_attempts : "played in"
+    lesson_attempts ||--o{ attempt_answers : "records"
+    exercises ||--o{ attempt_answers : "answered by"
+    users ||--o{ user_lesson_progress : "completes"
+    lessons ||--o{ user_lesson_progress : "completed in"
+    lesson_attempts ||--o| user_lesson_progress : "first completed by"
+    users ||--o{ user_skill_progress : "progresses"
+    skills ||--o{ user_skill_progress : "tracked in"
+    users ||--o{ xp_events : "earns"
+    lesson_attempts |o--o{ xp_events : "awards"
+    users ||--o{ leaderboard_entries : "ranks in"
+    users ||--o{ user_achievements : "earns"
+    achievements ||--o{ user_achievements : "earned as"
+    lesson_attempts |o--o{ user_achievements : "triggers"
+    users ||--o{ reward_claims : "claims"
+    users ||--o{ shop_purchases : "buys"
+    users ||--o{ streak_freeze_uses : "uses"
 ```
 
 ### Conventions
@@ -483,7 +683,7 @@ What is **not** on `users`: total XP, daily XP, weekly XP, lessons completed, un
 *Why streak is stored (deliberate exception):* it could be derived from completed-attempt dates, but
 `longest_streak` must be remembered anyway and the incremental rule ("same day: unchanged; yesterday:
 +1; gap: reset") is the clearest thing to explain and test. Consistency: the three streak columns are
-written **only** by `CompletionService` through the pure `advance_streak()` function, inside the
+written **only** by `CompletionService` through the pure `record_activity()` function, inside the
 completion transaction. Staleness is handled at read time by `displayed_streak()` (a stored streak of 9
 with `last_activity_date` three days ago displays as 0) — no nightly job.
 
@@ -629,7 +829,7 @@ Constraints: **UNIQUE(user_id, achievement_id)** → earned once, never revoked.
 ## 5. API architecture
 
 Base path `/api`. JSON only. All responses are Pydantic response models (never ORM objects).
-Authorization assumption for every endpoint except `/health`: **the default learner** via `get_current_user`.
+Every endpoint except `/health` and `/auth/*` needs `Authorization: Bearer <token>`; `get_current_user` resolves the signed-in learner from it (401 otherwise).
 Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 
 ### Endpoint overview
@@ -637,12 +837,16 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 | Method | Path | Purpose | Success |
 |---|---|---|---|
 | GET | `/api/health` | liveness + DB reachable | 200 |
+| POST | `/api/auth/signup` | create an account and sign in | 201 |
+| POST | `/api/auth/login` | sign in with email or username | 200 |
+| POST | `/api/auth/logout` | sign out (the client discards its token) | 204 |
 | GET | `/api/users/me` | identity + top-bar stats | 200 |
 | PATCH | `/api/users/me` | *(supporting)* change daily goal | 200 |
 | GET | `/api/courses` | list courses | 200 |
 | GET | `/api/courses/{course_id}` | course detail + learner summary | 200 |
 | GET | `/api/courses/{course_id}/path` | units → skills with learner status | 200 |
 | GET | `/api/skills/{skill_id}` | skill + lessons with status (path popover) | 200 |
+| GET | `/api/units/{unit_id}/guidebook` | unit guidebook | 200 |
 | GET | `/api/lessons/{lesson_id}` | lesson + exercises **without solutions** | 200 |
 | POST | `/api/lessons/{lesson_id}/attempts` | *(supporting)* start or resume an attempt | 201 / 200 |
 | POST | `/api/lessons/{lesson_id}/check` | check one answer | 200 |
@@ -652,6 +856,13 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 | POST | `/api/hearts/refill` | spend gems to refill | 200 |
 | GET | `/api/leaderboard` | current-week ranking | 200 |
 | GET | `/api/profile` | profile, stats, achievements | 200 |
+| GET | `/api/streak` | streak with a month calendar | 200 |
+| GET | `/api/shop` | shop items and gem balance | 200 |
+| POST | `/api/shop/purchase` | buy an item with gems (idempotent) | 200 |
+| GET | `/api/quests` | today's quests with progress | 200 |
+| POST | `/api/quests/{code}/claim` | claim a completed quest's reward | 200 |
+| POST | `/api/units/{unit_id}/chest/claim` | open a completed unit's chest | 200 |
+| GET | `/api/feed` | activity feed | 200 |
 | POST | `/api/auth/demo` | *(only with `ENABLE_DEMO_LOGIN=true`)* session for the seeded learner | 200 / 404 |
 | POST | `/api/test/reset` | *(test-only, `ENABLE_TEST_ROUTES=true`)* reset + reseed DB | 204 |
 
@@ -1038,7 +1249,7 @@ Three kinds of state, three homes:
 | Kind | Examples | Home |
 |---|---|---|
 | **Server state** (persistent, shared, cacheable) | user, path, skill, lesson content, hearts, progress, leaderboard, profile | **TanStack Query** |
-| **Lesson session state** (ephemeral, interaction-driven, needs exact transitions) | queue, current exercise, draft answer, phase, feedback, mistakes | **`useReducer` state machine** (`lessonReducer.ts`) |
+| **Lesson session state** (ephemeral, interaction-driven, needs exact transitions) | queue, current exercise, draft answer, phase, feedback, mistakes | **`useReducer` state machine** (`lessonMachine.ts`) |
 | **Presentation state** | popover open, selected match card, hover | component `useState` |
 
 ### TanStack Query
@@ -1109,12 +1320,14 @@ Tests map to evaluation criteria (see `evaluation-checklist.md`).
 
 ### Backend — pytest
 
-Infrastructure (`tests/conftest.py`):
-* `engine`: in-memory SQLite with `StaticPool` + `PRAGMA foreign_keys=ON` (same listener as prod).
-* `clock`: `FixedClock(2026-10-07T10:00Z)` overriding `get_clock`.
-* `seeded_db`: runs the **real seed** (proves seed validity) or a tiny deterministic fixture course.
-* `client`: FastAPI `TestClient` with dependency overrides.
-* Helpers: `play_lesson(client, lesson_id, wrong=…)` that answers via the seed's solutions.
+Infrastructure (`tests/conftest.py`), one fixture per concern:
+* `clock`: a `FixedClock`, passed to `create_app`.
+* `settings`: in-memory SQLite, low password work factor.
+* `app`: a fresh app with the **real seed** run into its database (proves seed validity).
+* `anonymous` / `client`: a `TestClient` without and with the seeded learner's session.
+* `db`: a session on the app's database, for asserting rows.
+* `api`: the `Api` driver from `tests/helpers.py`.
+* Helpers: `Api.play(lesson_id, mistakes=…)` in `tests/helpers.py`, which answers via the seed's solutions.
 
 **Unit (pure domain, fast, table-driven with `pytest.mark.parametrize`):**
 | Area | Cases |
