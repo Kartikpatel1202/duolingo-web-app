@@ -336,12 +336,17 @@ these are the settings each host needs. They are untested.
 | Setting | Value |
 |---|---|
 | Root directory | `backend` |
-| Build command | `pip install -r requirements.txt && python -m app.seed` |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| `PYTHON_VERSION` | `3.11.9` (or any 3.11 release) |
 | `APP_ENV` | `production` |
 | `SECRET_KEY` | a long random value (the app refuses to start in production without one) |
 | `CORS_ORIGINS` | the frontend's URL |
-| `DATABASE_URL` | `sqlite:////var/data/app.db` on a persistent disk |
+| `DATABASE_URL` | `sqlite:////var/data/app.db`, with a persistent disk mounted at `/var/data` |
+
+The seed runs in the start command, not the build command, because a host's persistent disk is
+usually mounted only while the service runs. It is safe to run on every start: it creates the
+course on an empty database and leaves existing accounts and progress alone.
 
 **SQLite needs a persistent disk.** The database is one file. On a host with an ephemeral
 filesystem (the default on most free tiers) it is lost on every deploy or restart, which deletes
