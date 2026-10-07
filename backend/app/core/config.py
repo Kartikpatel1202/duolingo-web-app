@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     app_timezone: str = "UTC"
     default_username: str = "learner"
     enable_test_routes: bool = False
+    # Lets POST /api/auth/demo sign a visitor in as the seeded learner without a password, so a
+    # demo can be shared as one link. Off unless a deployment asks for it.
+    enable_demo_login: bool = False
     # Signs session tokens. The default is for local development only (see the validator below).
     secret_key: str = DEV_SECRET_KEY
     session_days: int = 30

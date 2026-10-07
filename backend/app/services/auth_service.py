@@ -7,7 +7,12 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings
 from app.domain import auth
-from app.domain.errors import EmailTaken, InvalidCredentials, NotAuthenticated
+from app.domain.errors import (
+    DemoLoginUnavailable,
+    EmailTaken,
+    InvalidCredentials,
+    NotAuthenticated,
+)
 from app.domain.rules import AVATAR_COLORS, MAX_HEARTS, STARTING_GEMS
 from app.models import User
 from app.repositories import ContentRepository, UserRepository
@@ -65,6 +70,20 @@ class AuthService:
         user = self._users.get_by_login(identifier.strip().lower())
         if user is None or not auth.verify_password(password, user.password_hash):
             raise InvalidCredentials()
+        return self._session_for(user)
+
+    def demo_login(self) -> SessionOut:
+        """Sign in as the seeded learner without a password, for a demo shared as a link.
+
+        Only when the deployment enables it (`ENABLE_DEMO_LOGIN`). It answers "not found" both
+        when it is switched off and when the database has no seeded learner, so the endpoint
+        looks absent wherever it cannot be used.
+        """
+        if not self._settings.enable_demo_login:
+            raise DemoLoginUnavailable()
+        user = self._users.get_by_login(self._settings.default_username)
+        if user is None:
+            raise DemoLoginUnavailable()
         return self._session_for(user)
 
     def _session_for(self, user: User) -> SessionOut:

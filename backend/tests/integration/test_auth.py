@@ -111,6 +111,36 @@ def test_the_password_is_stored_only_as_a_hash(anonymous: TestClient, db: Sessio
     assert learner.password_hash.startswith("pbkdf2_sha256$")
 
 
+# --- demo link --------------------------------------------------------------------------------
+
+
+def test_demo_login_is_off_by_default(anonymous: TestClient) -> None:
+    response = anonymous.post("/api/auth/demo")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "DEMO_LOGIN_UNAVAILABLE"
+
+
+def test_demo_login_signs_in_as_the_seeded_learner_when_enabled(
+    anonymous: TestClient, settings: Settings
+) -> None:
+    settings.enable_demo_login = True
+    response = anonymous.post("/api/auth/demo")
+    assert response.status_code == 200, response.text
+    anonymous.headers["Authorization"] = f"Bearer {response.json()['token']}"
+    assert anonymous.get("/api/users/me").json()["username"] == "learner"
+
+
+def test_demo_login_needs_the_seeded_learner(
+    anonymous: TestClient, settings: Settings, db: Session
+) -> None:
+    settings.enable_demo_login = True
+    learner = db.scalars(select(User).where(User.username == "learner")).one()
+    learner.username = "someone-else"
+    learner.email = "someone@example.com"
+    db.commit()
+    assert anonymous.post("/api/auth/demo").status_code == 404
+
+
 # --- the 401 boundary -------------------------------------------------------------------------
 
 

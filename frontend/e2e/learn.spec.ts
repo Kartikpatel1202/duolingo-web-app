@@ -174,9 +174,8 @@ test.describe("Section 1 path", () => {
     expect(firstPhrases.size).toBe(path.units.length);
   });
 
-  test("units ahead of the learner offer “Jump here?”, which leads back to the current lesson", async ({ page, backend }) => {
+  test("units ahead of the learner offer “Jump here?”, which opens a lesson card that cannot start", async ({ page, backend }) => {
     const path = await backend.path();
-    const current = path.units.flatMap((unit) => unit.skills).find((skill) => skill.id === path.current_skill_id)!;
     await page.goto("/learn");
 
     // The learner's own unit has no jump node; every unit after it has exactly one.
@@ -186,13 +185,13 @@ test.describe("Section 1 path", () => {
     await expect(second.getByText("Jump here?")).toBeAttached();
 
     await second.locator("button[data-jump]").click();
-    const dialog = page.getByRole("dialog", { name: path.units[1]!.title });
-    await expect(dialog).toContainText("Finish Unit 1 to open this unit");
-    // Nothing is unlocked by asking: the unit is still locked on the server.
+    // The unit's own lesson card opens under the node (no modal), naming the unit and its reward…
+    const first = path.units[1]!.skills[0]!;
+    const card = page.getByRole("dialog", { name: new RegExp(`^${first.title}, lesson 1 of`) });
+    await expect(card).toContainText(path.units[1]!.title);
+    // …but the lesson cannot be started: the unit is still locked on the server.
+    await expect(card.getByRole("button", { name: /^Start/ })).toBeDisabled();
     expect((await backend.path()).units[1]!.skills[0]!.status).toBe("locked");
-
-    await dialog.getByRole("button", { name: "Go to my lesson" }).click();
-    await expect(page.getByRole("dialog", { name: new RegExp(`^${current.title}`) })).toBeVisible();
   });
 
   test("a locked skill shows its name on hover and cannot be started", async ({ page, backend }) => {

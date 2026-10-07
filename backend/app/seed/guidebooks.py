@@ -128,7 +128,9 @@ UNIT_4 = guidebook(
         phrase("Sí, yo tengo un hijo.", "Yes, I have a son."),
         phrase("Laura es mi hermana y mi amiga.", "Laura is my sister and my friend."),
         phrase("Él es mi tío.", "He is my uncle."),
-        phrase("En realidad, yo tengo un hijo y una hija.", "Actually, I have a son and a daughter."),
+        phrase(
+            "En realidad, yo tengo un hijo y una hija.", "Actually, I have a son and a daughter."
+        ),
     ),
     tip(
         "Noun gender and articles",
@@ -286,7 +288,8 @@ UNIT_10 = guidebook(
     key_phrases(
         phrase("Quiero una botella de agua, por favor.", "I want a bottle of water, please."),
         phrase(
-            "¿Cuánto cuesta una piña en tu mercado?", "How much does a pineapple cost at your market?"
+            "¿Cuánto cuesta una piña en tu mercado?",
+            "How much does a pineapple cost at your market?",
         ),
         phrase("Yo necesito dos duraznos.", "I need two peaches."),
         phrase("Hay un mercado aquí.", "There is a market here."),

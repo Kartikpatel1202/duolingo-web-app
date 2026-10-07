@@ -1,10 +1,9 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useState } from "react";
 
 import { useSpeech } from "@/hooks/useSpeech";
-import { cn } from "@/lib/cn";
-
 import { ChoiceTile, type TileState } from "./ChoiceTile";
 import type { AnswerOf, ExerciseViewProps } from "./types";
 
@@ -12,20 +11,16 @@ type Props = ExerciseViewProps<"match_pairs">;
 type Side = "left" | "right";
 type Pair = AnswerOf<"match_pairs">["pairs"][number];
 
-/** Colours that tell the learner's pairs apart before checking (pair n ↔ colour n). Sky is
- * reserved for the item currently waiting for its partner. */
-const PAIR_COLOURS = [
-  "border-grape-500 bg-grape-50 text-grape-700 [--tactile-edge:var(--color-grape-500)]",
-  "border-ember-500 bg-ember-50 text-ember-600 [--tactile-edge:var(--color-ember-500)]",
-  "border-sun-500 bg-sun-50 text-sun-700 [--tactile-edge:var(--color-sun-500)]",
-  "border-leaf-400 bg-leaf-50 text-leaf-700 [--tactile-edge:var(--color-leaf-400)]",
-  "border-cherry-400 bg-cherry-50 text-cherry-700 [--tactile-edge:var(--color-cherry-400)]",
-];
-
 /**
- * Tap an item on one side, then its partner on the other. Pairing is local and instant; the
- * full set is graded by the server in one check (verdicts per pair would require sending the
- * solution to the browser). Tapping a paired item unpairs it.
+ * Tap an item on one side, then its partner on the other: both turn blue, the pair is stored
+ * (by item id) and its two cards are locked. Pairing is local and instant; once every item is
+ * paired, CHECK sends the full set and the server grades it in one go (verdicts per pair would
+ * require sending the solution to the browser).
+ *
+ * Paired cards share the "selected" look and carry the pair's number, so the learner can see which
+ * two belong together. (They used to get a colour per pair by adding colour classes on top of the
+ * tile's own state classes; the state classes won in the stylesheet, so a paired card looked
+ * untouched and the second tap seemed to be ignored.)
  */
 export function MatchPairsExercise({ exercise, answer, onChange, feedback, disabled }: Props) {
   const { content } = exercise;
@@ -40,12 +35,8 @@ export function MatchPairsExercise({ exercise, answer, onChange, feedback, disab
   function tap(side: Side, id: string, text: string, language: string | null | undefined) {
     if (disabled) return;
     if (language) speak(text, language);
-    const existing = pairIndex(side, id);
-    if (existing >= 0) {
-      onChange({ type: "match_pairs", pairs: pairs.filter((_, i) => i !== existing) });
-      setPending(null);
-      return;
-    }
+    // A paired card is locked (its button is disabled too; this guards keyboard/programmatic taps).
+    if (pairIndex(side, id) >= 0) return;
     if (!pending || pending.side === side) {
       setPending(pending?.id === id ? null : { side, id });
       return;
@@ -58,15 +49,16 @@ export function MatchPairsExercise({ exercise, answer, onChange, feedback, disab
 
   const correctRight = new Map(feedback?.reveal.pairs.map((pair) => [pair.left_id, pair.right_id]));
 
-  function stateOf(side: Side, id: string): { state: TileState; colour?: string } {
+  function stateOf(side: Side, id: string): TileState {
     const index = pairIndex(side, id);
     if (feedback) {
       const pair = pairs[index];
-      if (!pair) return { state: "dimmed" };
-      return { state: correctRight.get(pair.left_id) === pair.right_id ? "correct" : "incorrect" };
+      if (!pair) return "dimmed";
+      return correctRight.get(pair.left_id) === pair.right_id ? "correct" : "incorrect";
     }
-    if (index >= 0) return { state: "idle", colour: PAIR_COLOURS[index % PAIR_COLOURS.length] };
-    return { state: pending?.side === side && pending.id === id ? "selected" : "idle" };
+    // Paired cards and the card waiting for its partner are both "selected" (blue).
+    if (index >= 0) return "selected";
+    return pending?.side === side && pending.id === id ? "selected" : "idle";
   }
 
   function column(side: Side) {
@@ -75,21 +67,37 @@ export function MatchPairsExercise({ exercise, answer, onChange, feedback, disab
     return (
       <div role="group" aria-label={side === "left" ? "Words" : "Meanings"} className="flex flex-col gap-3">
         {items.map((item) => {
-          const { state, colour } = stateOf(side, item.id);
+          const state = stateOf(side, item.id);
           const index = pairIndex(side, item.id);
+          const paired = index >= 0 && !feedback;
           return (
-            <ChoiceTile
+            // A small pop when a tile joins a pair, so pairing reads as an event, not a recolour.
+            <motion.div
               key={item.id}
-              state={state}
-              disabled={disabled}
-              onClick={() => tap(side, item.id, item.text, language)}
-              data-pair-item={`${side}:${item.id}`}
-              aria-label={index >= 0 && !feedback ? `${item.text} (pair ${index + 1})` : item.text}
-              lang={language ?? undefined}
-              className={cn("min-h-16", colour)}
+              className="flex"
+              animate={paired ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+              transition={{ duration: 0.25 }}
             >
-              {item.text}
-            </ChoiceTile>
+              <ChoiceTile
+                state={state}
+                disabled={disabled || paired}
+                onClick={() => tap(side, item.id, item.text, language)}
+                data-pair-item={`${side}:${item.id}`}
+                data-pair={paired ? index + 1 : undefined}
+                aria-label={paired ? `${item.text} (pair ${index + 1})` : item.text}
+                lang={language ?? undefined}
+                // Same card as the other exercises (min-h-14, 16px text).
+                className="min-h-14 text-base"
+                wrapperClassName="w-full"
+              >
+                {item.text}
+                {paired && (
+                  <span aria-hidden className="absolute top-1 right-2 text-xs font-extrabold opacity-70">
+                    {index + 1}
+                  </span>
+                )}
+              </ChoiceTile>
+            </motion.div>
           );
         })}
       </div>
@@ -97,7 +105,9 @@ export function MatchPairsExercise({ exercise, answer, onChange, feedback, disab
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-6">
+    // Two equal columns centred at the lesson's content width; `min-w-0` lets long words wrap
+    // instead of pushing the page sideways on a 375px phone.
+    <div className="mx-auto grid w-full max-w-[460px] grid-cols-2 gap-x-3 gap-y-3 sm:gap-x-5 [&>*]:min-w-0">
       {column("left")}
       {column("right")}
     </div>

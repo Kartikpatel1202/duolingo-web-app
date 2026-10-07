@@ -75,7 +75,8 @@ def test_every_lesson_uses_several_exercise_types(db: Session) -> None:
 def test_practice_skills_reuse_only_their_own_units_vocabulary(db: Session) -> None:
     for unit in db.scalars(select(Unit)):
         *authored, practice = unit.skills
-        # Units drawn to a reference screenshot take its icon for the last node; the rest mark practice.
+        # Units drawn to a reference screenshot take its icon for the last node;
+        # the rest mark practice.
         assert practice.icon == REFERENCE_PRACTICE_ICONS.get(unit.position, "dumbbell")
 
         def texts(skills: list[Skill]) -> set[str]:

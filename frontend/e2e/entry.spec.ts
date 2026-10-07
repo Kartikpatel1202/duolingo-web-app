@@ -1,8 +1,16 @@
-import { expect, test } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+import { SESSION_STORAGE_KEY, expect, test } from "./fixtures";
+
+/** Open the landing page as a visitor without a session (with one it redirects to the path). */
+async function openLandingSignedOut(page: Page) {
+  await page.addInitScript((key) => window.localStorage.removeItem(key), SESSION_STORAGE_KEY);
+  await page.goto("/");
+}
 
 test.describe("Entry: landing, login and get started", () => {
   test("landing offers a site language, login and get started", async ({ page }) => {
-    await page.goto("/");
+    await openLandingSignedOut(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(
@@ -52,8 +60,13 @@ test.describe("Entry: landing, login and get started", () => {
     expect(failed).toEqual([]);
   });
 
-  test("the course strip offers Spanish and shows other languages as disabled previews", async ({ page }) => {
+  test("a signed-in visitor is sent from the landing page to their path", async ({ page }) => {
     await page.goto("/");
+    await expect(page).toHaveURL(/\/learn$/);
+  });
+
+  test("the course strip offers Spanish and shows other languages as disabled previews", async ({ page }) => {
+    await openLandingSignedOut(page);
     const strip = page.getByRole("navigation", { name: "Courses" });
     // Spanish is the only real course, so it is the only link.
     await expect(strip.getByRole("link")).toHaveCount(1);
@@ -65,7 +78,7 @@ test.describe("Entry: landing, login and get started", () => {
   });
 
   test("site language lists English and marks the rest as upcoming", async ({ page }) => {
-    await page.goto("/");
+    await openLandingSignedOut(page);
     const trigger = page.getByRole("button", { name: /^Site language/ });
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");

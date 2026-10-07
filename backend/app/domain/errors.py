@@ -57,6 +57,11 @@ class InvalidCredentials(Unauthenticated):
 # --- not found --------------------------------------------------------------------------------
 
 
+class DemoLoginUnavailable(NotFound):
+    code = "DEMO_LOGIN_UNAVAILABLE"
+    message = "The demo is not available here."
+
+
 class CourseNotFound(NotFound):
     code = "COURSE_NOT_FOUND"
     message = "Course not found."

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -55,12 +55,12 @@ export function StatPopover({
   function cancelHide() {
     clearTimeout(hideTimer.current);
   }
-  function hoverStart(event: PointerEvent<HTMLElement>) {
+  function hoverStart(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType !== "mouse") return; // touch "hover" is just the start of a tap
     cancelHide();
     setOpen(true);
   }
-  function hoverEnd(event: PointerEvent<HTMLElement>) {
+  function hoverEnd(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType !== "mouse") return;
     cancelHide();
     hideTimer.current = setTimeout(() => setOpen(false), HIDE_DELAY_MS);

@@ -652,6 +652,7 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
 | POST | `/api/hearts/refill` | spend gems to refill | 200 |
 | GET | `/api/leaderboard` | current-week ranking | 200 |
 | GET | `/api/profile` | profile, stats, achievements | 200 |
+| POST | `/api/auth/demo` | *(only with `ENABLE_DEMO_LOGIN=true`)* session for the seeded learner | 200 / 404 |
 | POST | `/api/test/reset` | *(test-only, `ENABLE_TEST_ROUTES=true`)* reset + reseed DB | 204 |
 
 ### Shared shapes
@@ -1867,6 +1868,8 @@ them, so adding a screen is a one-line change that cannot crowd the Learn page.
 * `/login` — email and password; opens `/learn` (or the page the visitor was sent from).
 * `/welcome` — **sign up** (email, password, confirm password); creates the account, signs the
   learner in and opens `/learn`. Each form links to the other. "Log out" (in More) returns to `/`.
+* `/demo` — a shareable link that signs the visitor in as the seeded learner and opens `/learn`
+  (only where the API enables it; see §21, "Demo link").
 
 The earlier course-selection and daily-goal steps were removed from this flow: there is one
 course, the learner is enrolled in it on registration, and the daily goal keeps its default and
@@ -2092,6 +2095,21 @@ A new learner has no attempts, completions or XP, so the learning path starts at
 and every other table needs no seeding — the "store facts, compute states" rule means progress
 simply does not exist yet. The password must be at least 8 characters (`MIN_PASSWORD_LENGTH`,
 validated by the API; the form checks the same rule and the match with the confirmation field).
+
+### Demo link
+
+`POST /api/auth/demo` → `AuthService.demo_login` returns a session for the seeded learner
+(`DEFAULT_USERNAME`) without a password, and the frontend route `/demo` (`DemoLoginView`) calls it
+on load and then redirects like a login. This lets a demo be shared as one link.
+
+* It is a setting, `ENABLE_DEMO_LOGIN`, **off by default**. When it is off, or the database has no
+  seeded learner, the endpoint answers `404 DEMO_LOGIN_UNAVAILABLE` and the page offers the
+  ordinary login.
+* The link carries no credentials. The alternative — email and password in the query string —
+  would put a password in browser history, server logs and referrers, and would need the frontend
+  to know it.
+* *Trade-off:* with the setting on, anyone who has the site's address can use the demo account,
+  and all visitors share its progress. It grants nothing beyond that one account.
 
 ### Backend
 

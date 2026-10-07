@@ -58,6 +58,13 @@ The seed also creates a learner with some progress, if you want to see a populat
 These are defined in `backend/app/seed/people.py`. Sessions are signed with `SECRET_KEY`
 (a development default is used locally; production refuses to start without its own).
 
+### Sharing a demo link
+
+Set `ENABLE_DEMO_LOGIN=true` for the backend and share `<site>/demo`. Opening that link signs
+the visitor in as the seeded learner and opens the learning path; no email or password is in the
+link. Everyone who uses the link shares that one account. The setting is off by default, and
+`/demo` then shows the ordinary login instead.
+
 ## Test it
 
 Backend (from `backend/`):

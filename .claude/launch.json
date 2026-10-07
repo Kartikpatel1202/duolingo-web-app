@@ -6,7 +6,7 @@
       "runtimeExecutable": "backend/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--port", "8000"],
       "port": 8000,
-      "env": { "DATABASE_URL": "sqlite:///./backend/data/app.db" }
+      "env": { "DATABASE_URL": "sqlite:///./backend/data/app.db", "ENABLE_DEMO_LOGIN": "true" }
     },
     {
       "name": "frontend",

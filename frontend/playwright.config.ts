@@ -45,6 +45,7 @@ export default defineConfig({
       env: {
         DATABASE_URL: "sqlite:///./data/e2e.db",
         ENABLE_TEST_ROUTES: "true",
+        ENABLE_DEMO_LOGIN: "true",
         CORS_ORIGINS: `http://localhost:${WEB_PORT}`,
       },
       reuseExistingServer: false,

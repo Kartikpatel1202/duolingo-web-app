@@ -210,6 +210,33 @@ test.describe("Login", () => {
   });
 });
 
+test.describe("Demo link", () => {
+  test("opening /demo signs in as the seeded learner without typing anything", async ({ page }) => {
+    await page.goto("/demo");
+
+    await expect(page).toHaveURL(/\/learn$/);
+    // The seeded learner's progress, not a new account's.
+    await expect(skillNode(page, "Snacks")).toHaveAttribute("data-status", "in_progress");
+    expect(await storedSession(page)).toBeTruthy();
+  });
+
+  test("where the API has the demo switched off, the page offers the ordinary login", async ({ page }) => {
+    await page.route("**/api/auth/demo", (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: "DEMO_LOGIN_UNAVAILABLE", message: "The demo is not available here." } }),
+      }),
+    );
+    await page.goto("/demo");
+
+    await expect(page.getByRole("alert").filter({ hasText: "The demo isn't available here." })).toBeVisible();
+    await page.getByRole("main").getByRole("link", { name: "Log in" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await storedSession(page)).toBeNull();
+  });
+});
+
 test.describe("Protected pages", () => {
   for (const route of ["/learn", "/shop", "/profile", "/leaderboard", "/quests", "/settings", "/lesson/1"]) {
     test(`${route} sends a signed-out visitor to log in`, async ({ page }) => {

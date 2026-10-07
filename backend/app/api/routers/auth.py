@@ -25,6 +25,15 @@ def signup(body: SignupIn, service: AuthServiceDep) -> SessionOut:
 
 
 @router.post(
+    "/demo",
+    summary="Sign in as the demo learner (only where ENABLE_DEMO_LOGIN is set)",
+    responses=errors(404),
+)
+def demo_login(service: AuthServiceDep) -> SessionOut:
+    return service.demo_login()
+
+
+@router.post(
     "/logout",
     summary="Sign out (the client then discards its token)",
     status_code=status.HTTP_204_NO_CONTENT,

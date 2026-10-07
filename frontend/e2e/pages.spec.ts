@@ -167,14 +167,24 @@ test.describe("League, profile and settings", () => {
     await expect(page).toHaveURL(/\/leaderboard$/);
   });
 
-  test("top bar stats link to their screens", async ({ page }) => {
+  test("top bar stats open their cards, which link to their screens", async ({ page }) => {
+    const stats = () => page.getByRole("group", { name: "Your stats" }).first();
+
     await page.goto("/learn");
-    const stats = page.getByRole("group", { name: "Your stats" }).first();
-    await stats.getByRole("link", { name: /streak/ }).click();
+    await stats().getByRole("button", { name: /streak/ }).click();
+    await page.getByRole("dialog", { name: "Your streak" }).getByRole("link", { name: "View more" }).click();
     await expect(page).toHaveURL(/\/streak$/);
-    await page.getByRole("group", { name: "Your stats" }).first().getByRole("link", { name: /gems/ }).click();
+
+    await stats().getByRole("button", { name: /gems/ }).click();
+    await page.getByRole("dialog", { name: "Your gems" }).getByRole("link", { name: "Go to shop" }).click();
     await expect(page).toHaveURL(/\/shop$/);
-    await page.getByRole("group", { name: "Your stats" }).first().getByRole("button", { name: /hearts/ }).click();
-    await expect(page.getByRole("dialog", { name: /hearts/i })).toBeVisible();
+
+    await stats().getByRole("button", { name: /total XP/ }).click();
+    await page.getByRole("dialog", { name: "Your XP" }).getByRole("link", { name: "Go to profile" }).click();
+    await expect(page).toHaveURL(/\/profile$/);
+
+    await stats().getByRole("button", { name: /hearts/ }).click();
+    const hearts = page.getByRole("dialog", { name: "Hearts" });
+    await expect(hearts.getByRole("button", { name: /Refill hearts/ })).toBeVisible();
   });
 });

@@ -32,6 +32,18 @@ export function useSignup() {
   });
 }
 
+/** Sign in as the demo learner, for the shareable `/demo` link. The API decides if that is allowed. */
+export function useDemoLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => request(api.POST("/api/auth/demo")),
+    onSuccess: (session) => {
+      queryClient.clear();
+      saveSession(session.token);
+    },
+  });
+}
+
 /**
  * Sign out: tell the server (best effort), forget the token and load the public landing page.
  *
