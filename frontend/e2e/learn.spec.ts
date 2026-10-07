@@ -33,9 +33,10 @@ test.describe("Learn page", () => {
     for (const skill of skills) {
       await expect(skillNode(page, skill.title)).toHaveAttribute("data-status", skill.status);
     }
-    // The demo learner has every state on screen at once.
+    // The demo learner has every state on screen at once ("available" is the first skill of
+    // each unit ahead, which "Jump here" keeps open).
     expect(new Set(skills.map((skill) => skill.status))).toEqual(
-      new Set(["completed", "in_progress", "locked"]),
+      new Set(["completed", "in_progress", "available", "locked"]),
     );
     await expect(skillNode(page, "Ordering")).toHaveAccessibleName(/locked/);
   });
@@ -122,7 +123,8 @@ test.describe("Learn page", () => {
   });
 
   test("a locked lesson URL is refused by the backend", async ({ page, backend }) => {
-    const locked = (await backend.path()).units[2]!.skills[0]!;
+    // The first skill of a unit is open ("Jump here"); its second skill is locked until then.
+    const locked = (await backend.path()).units[2]!.skills[1]!;
     expect(locked.status).toBe("locked");
     const lessonId = (await backend.skill(locked.id)).lessons[0]!.id;
     await page.goto(`/lesson/${lessonId}`);

@@ -64,8 +64,8 @@ Section links point into [architecture.md](architecture.md).
 | Shareable demo link (`/demo`): one click signs in as the seeded learner; off unless `ENABLE_DEMO_LOGIN` is set | `AuthService.demo_login`, `POST /api/auth/demo`; `DemoLoginView`, `useDemoLogin` | `integration/test_auth.py` (demo link); `e2e/auth.spec.ts` (Demo link) | ☑ |
 | Bonus: achievement badges (grid, detail dialog, unlock animation) | `features/profile/AchievementGrid.tsx`, `illustrations/BadgeArt.tsx` | e2e `profile shows overview stats and an achievement detail` | ☑ |
 | Bonus: dark mode (light/dark/system, persisted, no flash) | `lib/theme.ts` boot script, `[data-theme=dark]` tokens | e2e `dark mode applies instantly…`, `light mode overrides…` | ☑ |
-| Navigation: 5 tabs + More sheet, stat links, course switcher, reminder banner | `components/layout/*`, `features/stats/*` | e2e `bottom tabs and the More sheet…`, `top bar stats link…`, `reminder banner…` | ☑ |
-| Sound effects (Web Audio, toggle) + speaking animation | `lib/sfx.ts`, `AudioButton` | e2e `sound effects can be switched off` | ☑ |
+| Navigation: 5 tabs + More sheet, stat hover cards (streak, XP, gems, hearts), course switcher, reminder banner | `components/layout/*`, `features/stats/*` (`StatPopover`) | e2e `bottom tabs and the More sheet…`, `top bar stats open their cards…`, `reminder banner…` | ☑ |
+| Sound effects (recordings in `public/sounds`, Web Audio fallback, toggle) + speaking animation | `lib/sfx.ts`, `AudioButton` | e2e `sound effects can be switched off` | ☑ |
 | No horizontal overflow at 375 px on every screen | responsive layouts | e2e `mobile.spec.ts` (7 routes) | ☑ |
 
 ## 3. Database design

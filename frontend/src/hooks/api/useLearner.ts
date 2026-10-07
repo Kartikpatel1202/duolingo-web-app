@@ -23,13 +23,6 @@ export function useProgress() {
   });
 }
 
-export function useHearts() {
-  return useQuery({
-    queryKey: queryKeys.hearts(),
-    queryFn: () => request(api.GET("/api/hearts")),
-  });
-}
-
 export function useUpdateDailyGoal() {
   const queryClient = useQueryClient();
   return useMutation({

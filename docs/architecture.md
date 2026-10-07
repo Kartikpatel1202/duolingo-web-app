@@ -112,7 +112,7 @@ frontend/
 │   │   ├── leaderboard/             # LeaderboardTable, LeaderboardRow, WeekCountdown
 │   │   └── profile/                 # ProfileHeader, StatsGrid, AchievementList
 │   ├── hooks/
-│   │   ├── api/                     # useCurrentUser, useCoursePath, useSkill, useLesson, useHearts,
+│   │   ├── api/                     # useCurrentUser, useCoursePath, useSkill, useLesson,
 │   │   │                            # useProgress, useProfile, useLeaderboard (queries)
 │   │   │                            # useStartAttempt, useCheckAnswer, useCompleteLesson,
 │   │   │                            # useRefillHearts (mutations)
@@ -1757,9 +1757,10 @@ has 0 XP this week. League tiers above the current one render as locked trophies
 ### Frontend
 
 * **Navigation** — `components/layout/navItems.ts` is the single list (final structure in §18:
-  Learn, Leaderboards, Quests, Shop, Profile + **More** for Feed/Streak/Settings). The top bar's stats are links: streak → `/streak`, XP → `/profile`,
-  gems → `/shop`, hearts → hearts dialog (real refill). A course switcher lists the API's courses
-  and previews upcoming ones as "Soon".
+  Learn, Leaderboards, Quests, Shop, Profile + **More** for Feed/Streak/Settings). The top bar's stats are buttons that open a card under the stat on hover (or press): the
+  shared `StatPopover` with `StreakMenu`, `XpMenu`, `GemsMenu` and `HeartsMenu` (real refill);
+  the streak, XP and gems cards link to `/streak`, `/profile` and `/shop`. `CourseSwitcher` uses the
+  same popover: it lists the API's courses and shows other entries as non-functional previews.
 * **Screens** — `features/{streak,shop,quests,feed,leaderboard,profile,settings}`. Each handles
   loading (geometry-matched skeletons), error (`ErrorState` + retry), empty and success states.
   Mutations (`usePurchase`, `useClaimQuest`, `useClaimChest`) show toasts and invalidate learner
@@ -1783,8 +1784,9 @@ setting in sync. Brand colours stay constant; only neutrals and tints change.
 
 ### Sound & motion
 
-`lib/sfx.ts` synthesises short correct/incorrect/complete cues with the Web Audio API (no audio
-files to license). The lesson player plays one per phase transition; Settings has an on/off switch
+`lib/sfx.ts` plays three recordings from `public/sounds` (correct, incorrect, lesson complete)
+and falls back to a synthesised Web Audio cue if a file cannot play. The recordings are taken
+from the reference product and are not licensed for redistribution (see the README). The lesson player plays one per phase transition; Settings has an on/off switch
 (persisted, default on). The speaker button shows a pulsing ring + bouncing bars while speaking.
 Motion respects `prefers-reduced-motion` (e.g. the available chest only wiggles when motion is
 allowed, and rests between wiggles so it stays an easy target).
@@ -2246,9 +2248,12 @@ the existing unlock rules. The seeded demo learner has one skill completed and o
   accessible name always carries it.
 * **"Jump here?"** — the first node of every unit the learner has not reached is drawn in that
   unit's colour with a fast-forward icon and a call-out, so each unit announces itself. Pressing
-  it opens `JumpDialog`, which says what opens the unit and offers "Go to my lesson" (scrolls to
-  and opens the current skill). It does not unlock anything: unlocking is a server rule, and this
-  build has no placement test. A real "test out" would be a new attempt mode plus an unlock rule.
+  it opens the `/jump/[unitId]` page (`features/lesson/JumpAheadScreen.tsx`): the loading screen,
+  then "Pass this test to jump ahead to Unit N!" with MAYBE LATER (back to the path) and LET'S GO,
+  which opens the unit's first lesson in the ordinary lesson player. The server allows it: the
+  first skill of every unit is always open (`domain/unlocks.py`), and the rest of that unit still
+  unlocks skill by skill. There is no separate placement test: a real "test out" would be a new
+  attempt mode plus a rule for what passing unlocks.
 * `PathCharacter` — two characters per unit, in the gaps between nodes, greyed while the unit is
   locked. Artwork comes from a reusable list in `lib/brand.ts` (`pathCharacters`), cycled along
   the path; with the list empty the built-in mascot is shown in varying states.

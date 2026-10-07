@@ -105,21 +105,34 @@ test.describe("Lesson player", () => {
     await lesson.answer(true);
   });
 
-  test("match pairs: pair everything, unpair by tapping, server grades the set", async ({ page, request, backend }) => {
+  test("match pairs: each pair stays selected and locked, then the server grades the set", async ({ page, request, backend }) => {
     const lesson = await LessonDriver.open(page, request, await currentLessonId(backend));
     const exercise = await lesson.advanceTo("match_pairs");
     const correct = lesson.correctAnswer(exercise);
     if (correct.type !== "match_pairs") throw new Error("expected match pairs");
-    const first = correct.pairs[0]!;
+    const [first, ...rest] = correct.pairs;
+    const left = (id: string) => page.locator(`[data-pair-item="left:${id}"]`);
+    const right = (id: string) => page.locator(`[data-pair-item="right:${id}"]`);
 
-    await page.locator(`[data-pair-item="left:${first.left_id}"]`).click();
-    await page.locator(`[data-pair-item="right:${first.right_id}"]`).click();
-    await expect(page.locator(`[data-pair-item="left:${first.left_id}"]`)).toHaveAccessibleName(/pair 1/);
-    await page.locator(`[data-pair-item="left:${first.left_id}"]`).click(); // unpair
-    await expect(page.locator(`[data-pair-item="left:${first.left_id}"]`)).not.toHaveAccessibleName(/pair/);
+    // Left card first: it shows as selected and nothing is paired yet.
+    await left(first!.left_id).click();
+    await expect(left(first!.left_id)).toHaveAttribute("aria-pressed", "true");
+    // Then its partner in the other column: both stay selected, carry the pair number and lock.
+    await right(first!.right_id).click();
+    for (const card of [left(first!.left_id), right(first!.right_id)]) {
+      await expect(card).toHaveAccessibleName(/pair 1/);
+      await expect(card).toHaveAttribute("aria-pressed", "true");
+      await expect(card).toBeDisabled();
+    }
+    // CHECK waits for every pair.
     await expect(lesson.checkButton).toBeDisabled();
 
-    await lesson.enter(exercise, correct);
+    // The other order works too: right card first, then left.
+    for (const pair of rest) {
+      await right(pair.right_id).click();
+      await left(pair.left_id).click();
+    }
+    await expect(lesson.checkButton).toBeEnabled();
     await lesson.checkButton.click();
     await expect(lesson.feedback).toHaveAttribute("aria-label", "Correct");
   });
