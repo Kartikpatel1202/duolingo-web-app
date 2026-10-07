@@ -21,7 +21,7 @@ export function ErrorState({ error, onRetry, retrying, className }: ErrorStatePr
   return (
     <div
       role="alert"
-      className={cn("flex flex-col items-center gap-4 rounded-panel border-2 border-line bg-white px-6 py-10 text-center", className)}
+      className={cn("flex flex-col items-center gap-4 rounded-panel border-2 border-line bg-surface px-6 py-10 text-center", className)}
     >
       <span className="flex size-20 items-center justify-center rounded-full bg-cherry-50 text-cherry-500" aria-hidden>
         <Icon className="size-10" strokeWidth={2.5} />

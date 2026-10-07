@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { LessonPlaceholder } from "@/features/lesson/LessonPlaceholder";
+import { LessonScreen } from "@/features/lesson";
 
 export const metadata: Metadata = { title: "Lesson" };
 
-export default async function LessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
+interface LessonPageProps {
+  params: Promise<{ lessonId: string }>;
+  searchParams: Promise<{ mode?: string }>;
+}
+
+export default async function LessonPage({ params, searchParams }: LessonPageProps) {
   const lessonId = Number((await params).lessonId);
   if (!Number.isInteger(lessonId) || lessonId <= 0) notFound();
-  return <LessonPlaceholder lessonId={lessonId} />;
+  const mode = (await searchParams).mode === "legendary" ? "legendary" : "standard";
+  return <LessonScreen lessonId={lessonId} mode={mode} />;
 }

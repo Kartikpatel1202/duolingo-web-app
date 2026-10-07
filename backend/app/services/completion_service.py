@@ -13,11 +13,16 @@ from sqlalchemy.exc import IntegrityError
 from app.domain import streak as streak_rules
 from app.domain import unlocks
 from app.domain import xp as xp_rules
-from app.domain.enums import AttemptStatus
+from app.domain.enums import AttemptMode, AttemptStatus
 from app.domain.errors import LessonNotFinished
 from app.domain.rules import FIRST_COMPLETION_GEMS
 from app.models import Lesson, LessonAttempt, User, UserLessonProgress, UserSkillProgress
-from app.repositories import AttemptRepository, ProgressRepository, XpRepository
+from app.repositories import (
+    AttemptRepository,
+    ProgressRepository,
+    RewardRepository,
+    XpRepository,
+)
 from app.schemas.progress import (
     AchievementSummaryOut,
     CompleteLessonIn,
@@ -25,7 +30,7 @@ from app.schemas.progress import (
     XpAwardOut,
 )
 from app.services.achievement_service import AchievementService
-from app.services.attempts import get_owned_attempt
+from app.services.attempts import ensure_not_ended, get_owned_attempt
 from app.services.context import ServiceContext
 from app.services.course_progress import CourseProgressService
 from app.services.hearts_service import HeartsService
@@ -49,7 +54,8 @@ class CompletionService:
         lesson, _ = self._course_progress.require_unlocked_lesson(user.id, lesson_id)
         attempt = get_owned_attempt(self._attempts, user, lesson_id, request.attempt_id)
 
-        if attempt.status is AttemptStatus.IN_PROGRESS:
+        if attempt.status is not AttemptStatus.COMPLETED:
+            ensure_not_ended(self._ctx.session, attempt, self._ctx.now())
             self._ensure_all_solved(lesson, attempt)
             try:
                 self._apply_completion(user, lesson, attempt)
@@ -73,8 +79,19 @@ class CompletionService:
 
     def _apply_completion(self, user: User, lesson: Lesson, attempt: LessonAttempt) -> None:
         now = self._ctx.now()
+        # Decided before this attempt is marked completed, so it cannot count itself.
+        first_legendary = (
+            attempt.mode is AttemptMode.LEGENDARY
+            and self._attempts.first_legendary_win(user.id, lesson.id) is None
+        )
         attempt.status = AttemptStatus.COMPLETED
         attempt.completed_at = now
+
+        if first_legendary:
+            awards = xp_rules.completion_awards(
+                first_completion=False, lesson_xp=lesson.xp_reward, mistakes=0, first_legendary=True
+            )
+            self._xp.award(user.id, awards, earned_at=now, attempt_id=attempt.id)
 
         first_completion = self._progress.lesson_progress(user.id, lesson.id) is None
         if first_completion:
@@ -95,8 +112,16 @@ class CompletionService:
             user.gems += FIRST_COMPLETION_GEMS
             self._record_skill_progress(user, lesson, attempt)
 
-        # Any completion (first or replay) counts as activity for the streak.
-        new_streak = streak_rules.record_activity(streak_state(user), self._ctx.today())
+        # Any completion (first or replay) counts as activity for the streak. Missed days are
+        # covered by streak freezes when the learner owns enough of them (consumed here).
+        today = self._ctx.today()
+        frozen_days = streak_rules.freezes_to_consume(
+            streak_state(user), today, user.streak_freezes
+        )
+        new_streak = streak_rules.record_activity(streak_state(user), today, user.streak_freezes)
+        if frozen_days:
+            user.streak_freezes -= len(frozen_days)
+            RewardRepository(self._ctx.session).add_freeze_uses(user.id, frozen_days)
         user.current_streak = new_streak.current
         user.longest_streak = new_streak.longest
         user.last_activity_date = new_streak.last_activity_date
@@ -143,6 +168,7 @@ class CompletionService:
         return CompleteLessonOut(
             attempt_id=attempt.id,
             lesson_id=lesson.id,
+            mode=attempt.mode,
             first_completion=first_completion,
             xp_awarded=sum(event.amount for event in events),
             xp_breakdown=[XpAwardOut(source=e.source, amount=e.amount) for e in events],

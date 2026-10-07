@@ -41,11 +41,15 @@ class HeartsService:
         self._apply(user, rules.lose_heart(self._stored(user), self._ctx.now()))
 
     def refill(self, user: User) -> RefillOut:
+        self.apply_refill(user)
+        self._ctx.session.commit()
+        return RefillOut(hearts=self.view(user), gems=user.gems)
+
+    def apply_refill(self, user: User) -> None:
+        """Spend gems for full hearts. Part of the caller's transaction (does not commit)."""
         result = rules.refill(self._stored(user), user.gems, self._ctx.now())
         self._apply(user, result.hearts)
         user.gems = result.gems
-        self._ctx.session.commit()
-        return RefillOut(hearts=hearts_out(result.hearts), gems=user.gems)
 
     @staticmethod
     def _stored(user: User) -> HeartState:

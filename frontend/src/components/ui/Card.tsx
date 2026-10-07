@@ -12,7 +12,7 @@ const PADDING = { none: "", sm: "p-4", md: "p-5" } as const;
 export function Card({ as: Tag = "div", padding = "md", className, ...props }: CardProps) {
   return (
     <Tag
-      className={cn("rounded-card border-2 border-line bg-white", PADDING[padding], className)}
+      className={cn("rounded-card border-2 border-line bg-surface", PADDING[padding], className)}
       {...props}
     />
   );

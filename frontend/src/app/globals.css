@@ -1,6 +1,62 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
 
+/* `dark:` utilities follow the resolved theme attribute (set before first paint). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Dark theme: the same token names with intentional dark values (not an inversion). Surfaces are
+ * deep blue-greys, borders lift slightly, tints become muted, and "-700" text tones become light so
+ * text on tinted backgrounds stays readable. Brand colours (500/600) are unchanged.
+ *
+ * A page that must always be light (the public landing page) marks its root with
+ * `data-force-light`; the dark values then do not apply while that page is on screen.
+ */
+[data-theme="dark"]:not(:has([data-force-light])) {
+  color-scheme: dark;
+  --color-surface: #131f24;
+  --color-mist: #1a2a31;
+  --color-line: #37464f;
+  --color-line-strong: #4b5c66;
+  --color-ink: #f1f7fb;
+  --color-ink-soft: #c9d4da;
+  --color-muted: #8fa1ab;
+  --color-locked: #37464f;
+  --color-locked-edge: #27353c;
+  --color-scrim: #000000;
+
+  --color-leaf-50: #1a3315;
+  --color-leaf-100: #22421b;
+  --color-leaf-200: #2e5a22;
+  --color-leaf-700: #93e35f;
+  --color-cherry-50: #3b1d21;
+  --color-cherry-100: #4b2429;
+  --color-cherry-700: #ff9497;
+  --color-sun-50: #3a3216;
+  --color-sun-100: #4b3f12;
+  --color-sun-700: #ffd863;
+  --color-sky-50: #13303e;
+  --color-sky-100: #183c4d;
+  --color-sky-700: #84d6fa;
+  --color-grape-50: #2c2042;
+  --color-grape-100: #3a2a56;
+  --color-grape-700: #d6abff;
+  --color-ember-50: #3b2817;
+  --color-ember-100: #4b3219;
+  --color-purple-50: #2d2040;
+  --color-purple-100: #3b2a54;
+  --color-purple-700: #e0b3ff;
+  --color-lime-50: #1f3010;
+  --color-lime-100: #29401a;
+  --color-lime-700: #a8e66a;
+  --color-teal-50: #12332b;
+  --color-teal-100: #174237;
+  --color-teal-700: #7fe6c6;
+  --color-pink-50: #3d2033;
+  --color-pink-100: #4f2942;
+  --color-pink-700: #ffb3e0;
+}
+
 /*
  * Tactile surfaces: a solid offset "edge" under the element (no blur) that is pressed away on
  * :active. Components set --tactile-edge (and optionally --tactile-depth).
@@ -40,8 +96,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html {
+    background: var(--color-surface);
+  }
+
   body {
-    background: var(--color-white);
+    background: var(--color-surface);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-weight: 600;
@@ -67,4 +127,39 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Mascot idle: a quick blink at the end of each cycle. Reduced motion collapses it (see above). */
+@keyframes mascot-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+
+.mascot-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascot-blink 4.8s ease-in-out infinite;
+}
+
+/* Breathing halo behind the learner's current skill. */
+@keyframes node-breathe {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  70%,
+  100% {
+    transform: scale(1.28);
+    opacity: 0;
+  }
+}
+
+.node-breathe {
+  animation: node-breathe 2.2s ease-out infinite;
 }

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.helpers import Api
+from tests.helpers import TOTAL_LESSONS, TOTAL_SKILLS, UNITS, Api
 
 
 def test_current_user_for_a_fresh_learner(api: Api) -> None:
@@ -36,22 +36,38 @@ def test_list_and_get_course(api: Api) -> None:
     courses = api.get("/api/courses")["courses"]
     assert [c["slug"] for c in courses] == ["es-en"]
     detail = api.get(f"/api/courses/{courses[0]['id']}")
-    assert detail["unit_count"] == 3
-    assert detail["skill_count"] == 9
-    assert detail["lesson_count"] == 18
+    assert detail["unit_count"] == UNITS
+    assert detail["skill_count"] == TOTAL_SKILLS
+    assert detail["lesson_count"] == TOTAL_LESSONS
     assert detail["completed_lesson_count"] == 0
 
 
 def test_fresh_path_has_only_the_first_skill_available(api: Api) -> None:
     path = api.get("/api/courses/1/path")
     skills = [skill for unit in path["units"] for skill in unit["skills"]]
-    assert [s["status"] for s in skills] == ["available"] + ["locked"] * 8
+    assert [s["status"] for s in skills] == ["available"] + ["locked"] * (TOTAL_SKILLS - 1)
     first = skills[0]
     assert path["current_skill_id"] == first["id"]
     assert path["current_lesson_id"] == first["next_lesson_id"] == api.lesson_id(1, 1, 1)
     assert first["lessons_completed"] == 0 and first["total_lessons"] == 2
     assert all(s["next_lesson_id"] is None for s in skills[1:])
-    assert [u["theme"] for u in path["units"]] == ["leaf", "sky", "grape"]
+    assert [u["theme"] for u in path["units"]] == [
+        "lime",
+        "purple",
+        "teal",
+        "lime",
+        "sky",
+        "pink",
+        "lime",
+        "ember",
+        "cherry",
+        "lime",
+    ]
+    assert [(u["section"], u["position"]) for u in path["units"]] == [
+        (1, n) for n in range(1, UNITS + 1)
+    ]
+    assert {s["icon"] for s in skills} == {"star", "book", "headphones", "dumbbell"}
+    assert {s["icon"] for s in path["units"][0]["skills"]} == {"star"}
 
 
 def test_path_reflects_progress(api: Api) -> None:
@@ -67,7 +83,8 @@ def test_skill_detail_lists_lessons_with_status(api: Api) -> None:
     skill = api.get("/api/skills/1")
     assert skill["status"] == "available"
     assert [lesson["status"] for lesson in skill["lessons"]] == ["available", "locked"]
-    assert all(lesson["exercise_count"] == 7 for lesson in skill["lessons"])
+    assert all(5 <= lesson["exercise_count"] <= 8 for lesson in skill["lessons"])
+    assert not any(lesson["legendary"] for lesson in skill["lessons"])
 
     locked = api.get("/api/skills/2")
     assert locked["status"] == "locked"

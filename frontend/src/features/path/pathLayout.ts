@@ -50,3 +50,19 @@ export function connectorPath(from: PathPoint, to: PathPoint): string {
   const x2 = to.x * 100;
   return `M ${x1} ${from.y} C ${x1} ${from.y + bend}, ${x2} ${to.y - bend}, ${x2} ${to.y}`;
 }
+
+/**
+ * A hand-tuned track: the horizontal centre of each item and a fixed step between them. Used for
+ * units that configure their own geometry (see `unitArt.ts`); the START bubble gets room above
+ * the first item.
+ */
+export function layoutFixed(
+  xs: readonly number[],
+  step: number,
+  paddingTop = 108,
+  paddingBottom = 70,
+): PathLayout {
+  const points = xs.map((x, i) => ({ x, y: paddingTop + i * step }));
+  const height = points.length === 0 ? 0 : paddingTop + (points.length - 1) * step + paddingBottom;
+  return { points, height };
+}

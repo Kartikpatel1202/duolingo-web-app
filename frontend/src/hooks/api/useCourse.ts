@@ -39,3 +39,13 @@ export function useLesson(lessonId: number) {
     staleTime: Infinity,
   });
 }
+
+/** A unit's guidebook. It is course content, so it is cached for the whole session. */
+export function useGuidebook(unitId: number) {
+  return useQuery({
+    queryKey: queryKeys.course.guidebook(unitId),
+    queryFn: () =>
+      request(api.GET("/api/units/{unit_id}/guidebook", { params: { path: { unit_id: unitId } } })),
+    staleTime: Infinity,
+  });
+}

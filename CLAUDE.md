@@ -18,7 +18,7 @@ Duolingo-inspired language-learning app built for an SDE assessment. Read
 ```
 backend/   FastAPI + SQLAlchemy + SQLite (Python 3.11, venv in backend/.venv)
 frontend/  Next.js 16 + React 19 + Tailwind v4 + TanStack Query + motion
-docs/      architecture.md, evaluation-checklist.md
+docs/      architecture.md, evaluation-checklist.md, interview-notes.md
 ```
 
 ## Commands

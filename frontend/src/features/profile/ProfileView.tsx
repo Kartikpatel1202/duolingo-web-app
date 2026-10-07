@@ -1,14 +1,21 @@
 "use client";
 
-import { BookOpenCheck, Crown, Medal } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
+import Link from "next/link";
 
-import { Avatar, Card, ErrorState, Skeleton, StatCard } from "@/components/ui";
+import { CourseFlag } from "@/components/icons/CourseFlag";
+import { Trophy } from "@/components/illustrations";
+import { Avatar, ErrorState, Skeleton, StatCard, TONE_SOFT, toTone } from "@/components/ui";
 import { StreakIcon, XpIcon } from "@/features/stats";
 import { useProfile } from "@/hooks/api/useCommunity";
+import { cn } from "@/lib/cn";
 import { formatMonthYear } from "@/lib/format";
 
-import { AchievementCard } from "./AchievementCard";
+import { AchievementGrid } from "./AchievementGrid";
 
+const FRIEND_SLOTS = 5;
+
+/** Profile: identity, overview stats, friend-streak slots and the achievement badge grid. */
 export function ProfileView() {
   const { data: profile, error, refetch, isFetching } = useProfile();
 
@@ -20,41 +27,64 @@ export function ProfileView() {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-center gap-5 border-b-2 border-line pb-8">
-        <Avatar name={user.display_name} color={user.avatar_color} size="xl" />
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-display font-black text-ink">{user.display_name}</h1>
-          <p className="font-bold text-muted">@{user.username}</p>
-          <p className="font-bold text-muted">Joined {formatMonthYear(user.joined_at)}</p>
+      <header className="overflow-hidden rounded-panel border-2 border-line">
+        <div className={cn("relative flex h-40 items-end justify-center pb-4", TONE_SOFT[toTone(user.avatar_color)])}>
+          <Avatar name={user.display_name} color={user.avatar_color} size="xl" />
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="focus-ring absolute top-3 right-3 rounded-tile p-2 text-ink-soft hover:bg-surface/40"
+          >
+            <Settings className="size-6" strokeWidth={2.6} aria-hidden />
+          </Link>
+        </div>
+        <div className="space-y-3 p-5">
+          <div>
+            <h1 className="text-display font-black text-ink">{user.display_name}</h1>
+            <p className="font-bold text-muted">
+              @{user.username} · Joined {formatMonthYear(user.joined_at)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 font-bold text-ink-soft">
+            <CourseFlag language="es" /> 1 course
+          </div>
         </div>
       </header>
 
-      <section aria-labelledby="stats-title" className="space-y-4">
-        <h2 id="stats-title" className="text-heading font-extrabold text-ink">
-          Statistics
+      <section aria-labelledby="overview-title" className="space-y-4">
+        <h2 id="overview-title" className="text-heading font-extrabold text-ink">
+          Overview
         </h2>
         <div className="grid grid-cols-2 gap-3">
-          <StatCard icon={<StreakIcon className="size-8" />} tone="ember" value={stats.current_streak} label="Day streak" />
+          <StatCard icon={<StreakIcon className="size-8" lit={stats.current_streak > 0} />} tone="ember" value={stats.current_streak} label="Day streak" />
           <StatCard icon={<XpIcon className="size-8" />} tone="sun" value={stats.total_xp} label="Total XP" />
           <StatCard
-            icon={<BookOpenCheck className="size-8" strokeWidth={2.4} />}
-            tone="leaf"
-            value={stats.lessons_completed}
-            label="Lessons completed"
+            icon={<Trophy tier="silver" className="size-9" />}
+            tone="sky"
+            value={stats.league_name.replace(" League", "")}
+            label={`League · #${stats.league_rank}`}
           />
           <StatCard
-            icon={<Crown className="size-8" fill="currentColor" strokeWidth={1.6} />}
+            icon={<Trophy tier="gold" className="size-9" />}
             tone="sun"
-            value={stats.skills_completed}
-            label="Skills mastered"
+            value={stats.top_finishes}
+            label="Top 3 finishes"
           />
-          <StatCard
-            icon={<Medal className="size-8" strokeWidth={2.4} />}
-            tone="grape"
-            value={`#${stats.league_rank}`}
-            label={`League · ${stats.weekly_xp} XP this week`}
-            className="col-span-2"
-          />
+          <StatCard icon={<StreakIcon className="size-8" />} tone="ember" value={stats.longest_streak} label="Longest streak" />
+          <StatCard icon={<XpIcon className="size-8" />} tone="leaf" value={stats.lessons_completed} label="Lessons done" />
+        </div>
+      </section>
+
+      <section aria-labelledby="friend-streaks-title" className="space-y-3">
+        <h2 id="friend-streaks-title" className="text-heading font-extrabold text-ink">
+          Friend streaks
+        </h2>
+        <div className="flex justify-between" aria-label="Friend streaks are coming soon">
+          {Array.from({ length: FRIEND_SLOTS }, (_, i) => (
+            <span key={i} aria-hidden className="flex size-14 items-center justify-center rounded-full border-2 border-dashed border-line-strong text-muted">
+              <Plus className="size-6" strokeWidth={3} />
+            </span>
+          ))}
         </div>
       </section>
 
@@ -67,13 +97,7 @@ export function ProfileView() {
             {earned} of {profile.achievements.length}
           </span>
         </div>
-        <Card padding="sm">
-          <ul>
-            {profile.achievements.map((achievement) => (
-              <AchievementCard key={achievement.code} achievement={achievement} />
-            ))}
-          </ul>
-        </Card>
+        <AchievementGrid achievements={profile.achievements} />
       </section>
     </div>
   );
@@ -82,13 +106,7 @@ export function ProfileView() {
 function ProfileSkeleton() {
   return (
     <div className="space-y-8" aria-busy="true">
-      <div className="flex items-center gap-5">
-        <Skeleton shape="circle" className="size-24" />
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-4 w-28" />
-        </div>
-      </div>
+      <Skeleton className="h-64 w-full rounded-panel" />
       <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-20" />

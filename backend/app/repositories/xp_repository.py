@@ -46,6 +46,11 @@ class XpRepository:
         )
         return self._session.scalars(statement).one_or_none()
 
+    def entries_before(self, week_start: date) -> Sequence[LeaderboardEntry]:
+        """Every learner's entry for every week before `week_start` (league history)."""
+        statement = select(LeaderboardEntry).where(LeaderboardEntry.week_start < week_start)
+        return self._session.scalars(statement).all()
+
     def weekly_standings(self, week_start: date) -> Sequence[tuple[User, LeaderboardEntry | None]]:
         """Every learner with their entry for the week (None if no XP yet). Everyone in the
         league is listed, so a new week shows the league at 0 XP rather than an empty board."""

@@ -9,7 +9,7 @@ from app.domain import unlocks
 from app.domain.enums import LessonStatus, SkillStatus
 from app.domain.errors import CourseNotFound, LessonLocked, LessonNotFound
 from app.models import Course, Lesson, Skill
-from app.repositories import ContentRepository, ProgressRepository
+from app.repositories import AttemptRepository, ContentRepository, ProgressRepository
 from app.schemas.course import SkillProgressOut
 from app.services.context import ServiceContext
 
@@ -18,10 +18,15 @@ _PLAYABLE = (SkillStatus.AVAILABLE, SkillStatus.IN_PROGRESS)
 
 class CourseProgress:
     def __init__(
-        self, course: Course, completed_lessons: set[int], completed_skills: set[int]
+        self,
+        course: Course,
+        completed_lessons: set[int],
+        completed_skills: set[int],
+        legendary_lessons: set[int] | None = None,
     ) -> None:
         self.course = course
         self.completed_lessons = frozenset(completed_lessons)
+        self.legendary_lessons = frozenset(legendary_lessons or ())
         self.skills: list[Skill] = [skill for unit in course.units for skill in unit.skills]
         self._skill_by_id = {skill.id: skill for skill in self.skills}
         outlines = [
@@ -36,6 +41,11 @@ class CourseProgress:
 
     def skill(self, skill_id: int) -> Skill:
         return self._skill_by_id[skill_id]
+
+    def is_skill_legendary(self, skill: Skill) -> bool:
+        return bool(skill.lessons) and all(
+            lesson.id in self.legendary_lessons for lesson in skill.lessons
+        )
 
     def skill_status(self, skill_id: int) -> SkillStatus:
         return self._skill_status[skill_id]
@@ -91,6 +101,7 @@ class CourseProgressService:
     def __init__(self, ctx: ServiceContext) -> None:
         self._content = ContentRepository(ctx.session)
         self._progress = ProgressRepository(ctx.session)
+        self._attempts = AttemptRepository(ctx.session)
 
     def load(self, user_id: int, course_id: int) -> CourseProgress:
         course = self._content.get_course_tree(course_id)
@@ -100,6 +111,7 @@ class CourseProgressService:
             course,
             self._progress.completed_lesson_ids(user_id),
             self._progress.completed_skill_ids(user_id),
+            self._attempts.legendary_lesson_ids(user_id),
         )
 
     def require_unlocked_lesson(

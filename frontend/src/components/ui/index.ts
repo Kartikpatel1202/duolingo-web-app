@@ -1,3 +1,4 @@
+export { AudioButton } from "./AudioButton";
 export { Avatar } from "./Avatar";
 export { Badge } from "./Badge";
 export { BottomSheet } from "./BottomSheet";

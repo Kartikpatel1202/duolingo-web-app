@@ -21,6 +21,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign in with email (or username) and password */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an account and sign in */
+        post: operations["signup_api_auth_signup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out (the client then discards its token) */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me": {
         parameters: {
             query?: never;
@@ -107,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/units/{unit_id}/guidebook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unit guidebook: key phrases, vocabulary and tips */
+        get: operations["get_guidebook_api_units__unit_id__guidebook_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lessons/{lesson_id}": {
         parameters: {
             query?: never;
@@ -135,7 +203,7 @@ export interface paths {
         put?: never;
         /**
          * Start a lesson attempt, or resume the active one
-         * @description 201 when a new attempt is created, 200 when the in-progress attempt is resumed.
+         * @description 201 when a new attempt is created, 200 when the in-progress attempt is resumed. Optional body `{"mode": "legendary"}` starts a Legendary challenge on a completed lesson.
          */
         post: operations["start_attempt_api_lessons__lesson_id__attempts_post"];
         delete?: never;
@@ -263,6 +331,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/streak": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Streak with a month calendar */
+        get: operations["get_streak_api_streak_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shop items and gem balance */
+        get: operations["get_shop_api_shop_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shop/purchase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Buy an item with gems (idempotent per purchase_id) */
+        post: operations["purchase_api_shop_purchase_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today's quests with progress */
+        get: operations["get_quests_api_quests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quests/{code}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim a completed quest's reward (once per day) */
+        post: operations["claim_quest_api_quests__code__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/units/{unit_id}/chest/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open a completed unit's treasure chest (once) */
+        post: operations["claim_chest_api_units__unit_id__chest_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity feed */
+        get: operations["get_feed_api_feed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -283,18 +470,34 @@ export interface components {
             /** Icon */
             icon: string;
         };
+        /**
+         * AttemptMode
+         * @enum {string}
+         */
+        AttemptMode: "standard" | "legendary";
         /** AttemptOut */
         AttemptOut: {
             /** Attempt Id */
             attempt_id: string;
             /** Lesson Id */
             lesson_id: number;
+            mode: components["schemas"]["AttemptMode"];
             status: components["schemas"]["AttemptStatus"];
             /**
              * Started At
              * Format: date-time
              */
             started_at: string;
+            /**
+             * Expires At
+             * @description Deadline for timed challenges; null otherwise.
+             */
+            expires_at: string | null;
+            /**
+             * Mistake Limit
+             * @description Mistakes allowed in a challenge; null otherwise.
+             */
+            mistake_limit: number | null;
             /**
              * Solved Exercise Ids
              * @description Exercises already answered correctly.
@@ -308,12 +511,19 @@ export interface components {
         };
         /** AttemptProgressOut */
         AttemptProgressOut: {
+            /** @description `failed` when a challenge just ended. */
+            status: components["schemas"]["AttemptStatus"];
             /** Solved Count */
             solved_count: number;
             /** Total Exercises */
             total_exercises: number;
             /** Mistakes */
             mistakes: number;
+            /**
+             * Mistakes Remaining
+             * @description Challenges only; null in standard lessons.
+             */
+            mistakes_remaining: number | null;
             /** Can Complete */
             can_complete: boolean;
         };
@@ -321,7 +531,7 @@ export interface components {
          * AttemptStatus
          * @enum {string}
          */
-        AttemptStatus: "in_progress" | "completed";
+        AttemptStatus: "in_progress" | "completed" | "failed";
         /** CheckAnswerIn */
         CheckAnswerIn: {
             /** Attempt Id */
@@ -345,10 +555,20 @@ export interface components {
             /** Is Correct */
             is_correct: boolean;
             /**
+             * Heart Lost
+             * @description Whether this answer cost a heart.
+             */
+            heart_lost: boolean;
+            /**
              * Correct Answer
              * @description Revealed only after the answer has been checked.
              */
             correct_answer: string;
+            /**
+             * Reveal
+             * @description Structured correct answer, for highlighting in the UI.
+             */
+            reveal: components["schemas"]["MultipleChoiceReveal"] | components["schemas"]["WordBankReveal"] | components["schemas"]["MatchPairsReveal"] | components["schemas"]["FillBlankReveal"] | components["schemas"]["TypeAnswerReveal"];
             /**
              * Note
              * @description Soft feedback, e.g. an accent reminder.
@@ -368,6 +588,13 @@ export interface components {
             /** Emoji */
             emoji?: string | null;
         };
+        /** ClaimOut */
+        ClaimOut: {
+            /** Gems Awarded */
+            gems_awarded: number;
+            /** Gems */
+            gems: number;
+        };
         /** CompleteLessonIn */
         CompleteLessonIn: {
             /** Attempt Id */
@@ -382,6 +609,7 @@ export interface components {
             attempt_id: string;
             /** Lesson Id */
             lesson_id: number;
+            mode: components["schemas"]["AttemptMode"];
             /** First Completion */
             first_completion: boolean;
             /** Xp Awarded */
@@ -536,6 +764,37 @@ export interface components {
         ErrorResponse: {
             error: components["schemas"]["ErrorDetail"];
         };
+        /** FeedItemOut */
+        FeedItemOut: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "achievement" | "league" | "streak" | "tip";
+            /**
+             * Label
+             * @example CULTURE
+             * @example LEAGUE
+             */
+            label: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor Color */
+            actor_color: string | null;
+            /** Occurred At */
+            occurred_at: string | null;
+        };
+        /** FeedOut */
+        FeedOut: {
+            /** Items */
+            items: components["schemas"]["FeedItemOut"][];
+        };
         /** FillBlankAnswer */
         FillBlankAnswer: {
             /**
@@ -560,6 +819,8 @@ export interface components {
             after: string;
             /** Translation */
             translation?: string | null;
+            /** Language */
+            language?: string | null;
             /** Options */
             options?: string[] | null;
         };
@@ -577,6 +838,92 @@ export interface components {
              */
             type: "fill_blank";
             content: components["schemas"]["FillBlankContent"];
+        };
+        /** FillBlankReveal */
+        FillBlankReveal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "fill_blank";
+            /** Text */
+            text: string;
+        };
+        /**
+         * GuidebookEntryKind
+         * @enum {string}
+         */
+        GuidebookEntryKind: "phrase" | "term" | "example";
+        /** GuidebookEntryOut */
+        GuidebookEntryOut: {
+            kind: components["schemas"]["GuidebookEntryKind"];
+            /**
+             * Text
+             * @description In the language being learned; this is what audio speaks.
+             */
+            text: string;
+            /** Translation */
+            translation: string;
+        };
+        /** GuidebookOut */
+        GuidebookOut: {
+            /** Unit Id */
+            unit_id: number;
+            /** Unit Position */
+            unit_position: number;
+            /** Unit Title */
+            unit_title: string;
+            /**
+             * Language
+             * @description BCP-47 code of the entries' language.
+             * @example es
+             */
+            language: string;
+            /** Introduction */
+            introduction: string;
+            /** Sections */
+            sections: components["schemas"]["GuidebookSectionOut"][];
+        };
+        /**
+         * GuidebookSectionKind
+         * @enum {string}
+         */
+        GuidebookSectionKind: "key_phrases" | "vocabulary" | "tip";
+        /** GuidebookSectionOut */
+        GuidebookSectionOut: {
+            kind: components["schemas"]["GuidebookSectionKind"];
+            /** Title */
+            title: string;
+            /** Body */
+            body: string | null;
+            /**
+             * Term Heading
+             * @description Heading of the tip table's first column.
+             */
+            term_heading: string | null;
+            /**
+             * Translation Heading
+             * @description Heading of the tip table's second column.
+             */
+            translation_heading: string | null;
+            /**
+             * Highlights
+             * @description Words to accent in the tip's text; empty: default.
+             */
+            highlights: string[];
+            /**
+             * Footer
+             * @description Closing paragraph, after the tip's table.
+             */
+            footer: string | null;
+            /**
+             * Layout
+             * @description Order of a tip's parts: table/note/examples, examples/note/table or table/examples/note.
+             * @enum {string}
+             */
+            layout: "default" | "examples_first" | "footer_last";
+            /** Entries */
+            entries: components["schemas"]["GuidebookEntryOut"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -614,6 +961,7 @@ export interface components {
         };
         /** LeaderboardOut */
         LeaderboardOut: {
+            league: components["schemas"]["LeagueOut"];
             /**
              * Week Start
              * Format: date
@@ -632,6 +980,8 @@ export interface components {
         LeaderboardRowOut: {
             /** Rank */
             rank: number;
+            /** Zone */
+            zone: ("promotion" | "demotion") | null;
             /** User Id */
             user_id: number;
             /** Display Name */
@@ -649,6 +999,15 @@ export interface components {
             rank: number;
             /** Xp */
             xp: number;
+        };
+        /** LeagueOut */
+        LeagueOut: {
+            /** Name */
+            name: string;
+            /** Promotion Spots */
+            promotion_spots: number;
+            /** Demotion Spots */
+            demotion_spots: number;
         };
         /**
          * LessonOut
@@ -671,6 +1030,16 @@ export interface components {
          * @enum {string}
          */
         LessonStatus: "locked" | "available" | "completed";
+        /** LoginIn */
+        LoginIn: {
+            /**
+             * Identifier
+             * @description Email address or username.
+             */
+            identifier: string;
+            /** Password */
+            password: string;
+        };
         /** MatchPairsAnswer */
         MatchPairsAnswer: {
             /**
@@ -687,6 +1056,10 @@ export interface components {
             left: components["schemas"]["PairItem"][];
             /** Right */
             right: components["schemas"]["PairItem"][];
+            /** Left Language */
+            left_language?: string | null;
+            /** Right Language */
+            right_language?: string | null;
         };
         /** MatchPairsExerciseOut */
         MatchPairsExerciseOut: {
@@ -703,6 +1076,16 @@ export interface components {
             type: "match_pairs";
             content: components["schemas"]["MatchPairsContent"];
         };
+        /** MatchPairsReveal */
+        MatchPairsReveal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "match_pairs";
+            /** Pairs */
+            pairs: components["schemas"]["SubmittedPair"][];
+        };
         /** MultipleChoiceAnswer */
         MultipleChoiceAnswer: {
             /**
@@ -717,6 +1100,12 @@ export interface components {
         MultipleChoiceContent: {
             /** Source Text */
             source_text?: string | null;
+            /** Source Language */
+            source_language?: string | null;
+            /** Options Language */
+            options_language?: string | null;
+            /** Label */
+            label?: "new_word" | null;
             /** Options */
             options: components["schemas"]["ChoiceOption"][];
         };
@@ -734,6 +1123,16 @@ export interface components {
              */
             type: "multiple_choice";
             content: components["schemas"]["MultipleChoiceContent"];
+        };
+        /** MultipleChoiceReveal */
+        MultipleChoiceReveal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "multiple_choice";
+            /** Correct Option Id */
+            correct_option_id: string;
         };
         /** PairItem */
         PairItem: {
@@ -773,6 +1172,8 @@ export interface components {
             progress: number;
             /** Next Lesson Id */
             next_lesson_id: number | null;
+            /** Legendary */
+            legendary: boolean;
         };
         /** PathUnitOut */
         PathUnitOut: {
@@ -780,6 +1181,8 @@ export interface components {
             id: number;
             /** Position */
             position: number;
+            /** Section */
+            section: number;
             /** Title */
             title: string;
             /** Description */
@@ -788,6 +1191,7 @@ export interface components {
             theme: string;
             /** Skills */
             skills: components["schemas"]["PathSkillOut"][];
+            chest: components["schemas"]["UnitChestOut"];
         };
         /** ProfileAchievementOut */
         ProfileAchievementOut: {
@@ -830,6 +1234,10 @@ export interface components {
             weekly_xp: number;
             /** League Rank */
             league_rank: number;
+            /** League Name */
+            league_name: string;
+            /** Top Finishes */
+            top_finishes: number;
         };
         /** ProfileUserOut */
         ProfileUserOut: {
@@ -862,11 +1270,133 @@ export interface components {
             /** Last 7 Days */
             last_7_days: components["schemas"]["DailyXpOut"][];
         };
+        /** PurchaseIn */
+        PurchaseIn: {
+            item_id: components["schemas"]["ShopItemId"];
+            /**
+             * Purchase Id
+             * @description Client-generated id (UUID). A retry with the same id never charges twice.
+             */
+            purchase_id: string;
+        };
+        /** PurchaseOut */
+        PurchaseOut: {
+            item_id: components["schemas"]["ShopItemId"];
+            /**
+             * Replayed
+             * @description True when this purchase_id had already been processed.
+             */
+            replayed: boolean;
+            /** Gems */
+            gems: number;
+            /** Streak Freezes */
+            streak_freezes: number;
+            hearts: components["schemas"]["HeartsOut"];
+        };
+        /** QuestOut */
+        QuestOut: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Progress */
+            progress: number;
+            /** Target */
+            target: number;
+            /** Reward Gems */
+            reward_gems: number;
+            /** Completed */
+            completed: boolean;
+            /** Claimed */
+            claimed: boolean;
+        };
+        /** QuestsOut */
+        QuestsOut: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Resets At
+             * Format: date-time
+             * @description Local midnight: daily quests renew.
+             */
+            resets_at: string;
+            /**
+             * Next Week At
+             * Format: date-time
+             * @description When weekly content is revealed.
+             */
+            next_week_at: string;
+            /** Quests */
+            quests: components["schemas"]["QuestOut"][];
+        };
         /** RefillOut */
         RefillOut: {
             hearts: components["schemas"]["HeartsOut"];
             /** Gems */
             gems: number;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /**
+             * Token
+             * @description Send as `Authorization: Bearer <token>` on every request.
+             */
+            token: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /**
+         * ShopItemId
+         * @enum {string}
+         */
+        ShopItemId: "streak_freeze" | "heart_refill";
+        /** ShopItemOut */
+        ShopItemOut: {
+            id: components["schemas"]["ShopItemId"];
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Price Gems */
+            price_gems: number;
+            /**
+             * Owned
+             * @description Inventory count for items you keep; null otherwise.
+             */
+            owned: number | null;
+            /** Max Owned */
+            max_owned: number | null;
+            /** Available */
+            available: boolean;
+            /**
+             * Unavailable Reason
+             * @description Why it can't be bought right now.
+             */
+            unavailable_reason: string | null;
+        };
+        /** ShopOut */
+        ShopOut: {
+            /** Gems */
+            gems: number;
+            /** Items */
+            items: components["schemas"]["ShopItemOut"][];
+        };
+        /** SignupIn */
+        SignupIn: {
+            /**
+             * Email
+             * @description Becomes the sign-in name; stored lower-case.
+             * @example sam@example.com
+             */
+            email: string;
+            /** Password */
+            password: string;
         };
         /** SkillDetailOut */
         SkillDetailOut: {
@@ -891,6 +1421,8 @@ export interface components {
             progress: number;
             /** Next Lesson Id */
             next_lesson_id: number | null;
+            /** Legendary */
+            legendary: boolean;
             /** Lessons */
             lessons: components["schemas"]["SkillLessonOut"][];
         };
@@ -907,6 +1439,8 @@ export interface components {
             /** Exercise Count */
             exercise_count: number;
             status: components["schemas"]["LessonStatus"];
+            /** Legendary */
+            legendary: boolean;
         };
         /** SkillProgressOut */
         SkillProgressOut: {
@@ -925,6 +1459,50 @@ export interface components {
          * @enum {string}
          */
         SkillStatus: "locked" | "available" | "in_progress" | "completed";
+        /** StartAttemptIn */
+        StartAttemptIn: {
+            /** @default standard */
+            mode: components["schemas"]["AttemptMode"];
+        };
+        /** StreakCalendarOut */
+        StreakCalendarOut: {
+            /** Current */
+            current: number;
+            /** Longest */
+            longest: number;
+            /** Active Today */
+            active_today: boolean;
+            /** Freezes Owned */
+            freezes_owned: number;
+            /** Freezes Max */
+            freezes_max: number;
+            /**
+             * Month
+             * @description YYYY-MM of the calendar returned.
+             * @example 2026-10
+             */
+            month: string;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /**
+             * Practiced Days
+             * @description Days in the month with a completed lesson.
+             */
+            practiced_days: string[];
+            /**
+             * Freeze Days
+             * @description Days in the month covered by a streak freeze.
+             */
+            freeze_days: string[];
+            /** Days Practiced */
+            days_practiced: number;
+            /** Freezes Used */
+            freezes_used: number;
+            society: components["schemas"]["StreakSocietyOut"];
+        };
         /** StreakOut */
         StreakOut: {
             /**
@@ -939,6 +1517,15 @@ export interface components {
              * @description Whether a lesson was completed today.
              */
             active_today: boolean;
+        };
+        /** StreakSocietyOut */
+        StreakSocietyOut: {
+            /** Threshold */
+            threshold: number;
+            /** Unlocked */
+            unlocked: boolean;
+            /** Days To Go */
+            days_to_go: number;
         };
         /** SubmittedPair */
         SubmittedPair: {
@@ -981,6 +1568,29 @@ export interface components {
             type: "type_answer";
             content: components["schemas"]["TypeAnswerContent"];
         };
+        /** TypeAnswerReveal */
+        TypeAnswerReveal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "type_answer";
+            /** Text */
+            text: string;
+        };
+        /**
+         * UnitChestOut
+         * @description Treasure chest at the end of a unit: claimable once every skill is completed.
+         */
+        UnitChestOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "locked" | "available" | "claimed";
+            /** Reward Gems */
+            reward_gems: number;
+        };
         /** UpdateUserIn */
         UpdateUserIn: {
             /**
@@ -1017,6 +1627,10 @@ export interface components {
         WordBankContent: {
             /** Source Text */
             source_text: string;
+            /** Source Language */
+            source_language?: string | null;
+            /** Tiles Language */
+            tiles_language?: string | null;
             /** Tiles */
             tiles: components["schemas"]["WordTile"][];
         };
@@ -1035,6 +1649,16 @@ export interface components {
             type: "word_bank";
             content: components["schemas"]["WordBankContent"];
         };
+        /** WordBankReveal */
+        WordBankReveal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "word_bank";
+            /** Tile Ids */
+            tile_ids: string[];
+        };
         /** WordTile */
         WordTile: {
             /** Id */
@@ -1052,7 +1676,7 @@ export interface components {
          * XpSource
          * @enum {string}
          */
-        XpSource: "lesson_completion" | "perfect_bonus" | "seed";
+        XpSource: "lesson_completion" | "perfect_bonus" | "legendary_bonus" | "seed";
     };
     responses: never;
     parameters: never;
@@ -1082,10 +1706,134 @@ export interface operations {
             };
         };
     };
-    get_me_api_users_me_get: {
+    login_api_auth_login_post: {
         parameters: {
             query?: never;
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Not signed in, or the email/password is wrong (NOT_AUTHENTICATED, INVALID_CREDENTIALS) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signup_api_auth_signup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+            /** @description Conflict with the current state (e.g. OUT_OF_HEARTS) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or the email/password is wrong (NOT_AUTHENTICATED, INVALID_CREDENTIALS) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_me_api_users_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1123,7 +1871,9 @@ export interface operations {
     update_me_api_users_me_patch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1185,7 +1935,9 @@ export interface operations {
     get_course_api_courses__course_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 course_id: number;
             };
@@ -1225,7 +1977,9 @@ export interface operations {
     get_path_api_courses__course_id__path_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 course_id: number;
             };
@@ -1265,7 +2019,9 @@ export interface operations {
     get_skill_api_skills__skill_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 skill_id: number;
             };
@@ -1302,10 +2058,52 @@ export interface operations {
             };
         };
     };
-    get_lesson_api_lessons__lesson_id__get: {
+    get_guidebook_api_units__unit_id__guidebook_get: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                unit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuidebookOut"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_lesson_api_lessons__lesson_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 lesson_id: number;
             };
@@ -1354,13 +2152,19 @@ export interface operations {
     start_attempt_api_lessons__lesson_id__attempts_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 lesson_id: number;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartAttemptIn"] | null;
+            };
+        };
         responses: {
             /** @description Resumed */
             200: {
@@ -1421,7 +2225,9 @@ export interface operations {
     check_answer_api_lessons__lesson_id__check_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 lesson_id: number;
             };
@@ -1474,7 +2280,9 @@ export interface operations {
     get_progress_api_progress_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1489,12 +2297,23 @@ export interface operations {
                     "application/json": components["schemas"]["ProgressOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     complete_lesson_api_progress_lesson__lesson_id__complete_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 lesson_id: number;
             };
@@ -1556,7 +2375,9 @@ export interface operations {
     get_hearts_api_hearts_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1571,12 +2392,23 @@ export interface operations {
                     "application/json": components["schemas"]["HeartsOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     refill_hearts_api_hearts_refill_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1616,7 +2448,9 @@ export interface operations {
             query?: {
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1645,7 +2479,9 @@ export interface operations {
     get_profile_api_profile_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1658,6 +2494,287 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_streak_api_streak_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreakCalendarOut"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_shop_api_shop_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purchase_api_shop_purchase_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOut"];
+                };
+            };
+            /** @description Conflict with the current state (e.g. OUT_OF_HEARTS) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_quests_api_quests_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_quest_api_quests__code__claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimOut"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (e.g. OUT_OF_HEARTS) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    claim_chest_api_units__unit_id__chest_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimOut"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (e.g. OUT_OF_HEARTS) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request (VALIDATION_ERROR, INVALID_ANSWER) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_feed_api_feed_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

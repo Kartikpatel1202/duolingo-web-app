@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import MetaData, create_engine, event
+from sqlalchemy import MetaData, create_engine, event, inspect, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -61,9 +61,36 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def create_schema(engine: Engine) -> None:
+    """Create missing tables and add missing nullable columns; never drops or rewrites data.
+
+    Accounts, progress and everything else a learner created therefore survive restarts and
+    schema additions: only `reset_schema` (an explicit development command) removes data.
+    """
     import app.models  # noqa: F401  (registers every model on Base.metadata)
 
     Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """`create_all` skips tables that exist, so a column added to a model later is added here.
+
+    Only nullable columns can be added to a table that already holds rows, which is all this
+    project's additive changes need (anything else would be a real migration).
+    """
+    existing = inspect(engine)
+    with engine.begin() as connection:
+        for table in Base.metadata.sorted_tables:
+            if not existing.has_table(table.name):
+                continue
+            present = {column["name"] for column in existing.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in present or not column.nullable:
+                    continue
+                ddl_type = column.type.compile(dialect=engine.dialect)
+                connection.execute(
+                    text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl_type}')
+                )
 
 
 def reset_schema(engine: Engine) -> None:

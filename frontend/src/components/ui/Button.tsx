@@ -3,15 +3,16 @@ import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "reward" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "reward" | "ghost" | "super";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-leaf-500 text-white [--tactile-edge:var(--color-leaf-600)]",
   secondary: "bg-sky-500 text-white [--tactile-edge:var(--color-sky-600)]",
+  super: "bg-indigo-500 text-white [--tactile-edge:var(--color-indigo-600)]",
   danger: "bg-cherry-500 text-white [--tactile-edge:var(--color-cherry-600)]",
   reward: "bg-sun-500 text-ink [--tactile-edge:var(--color-sun-600)]",
-  ghost: "border-2 border-line bg-white text-sky-600 [--tactile-edge:var(--color-line)]",
+  ghost: "border-2 border-line bg-surface text-sky-600 [--tactile-edge:var(--color-line)]",
 };
 
 const SIZES: Record<ButtonSize, string> = {

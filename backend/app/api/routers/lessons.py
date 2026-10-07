@@ -2,7 +2,8 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import AnswerServiceDep, CurrentUser, LessonServiceDep
 from app.api.responses import errors
-from app.schemas.lesson import AttemptOut, CheckAnswerIn, CheckAnswerOut, LessonOut
+from app.domain.enums import AttemptMode
+from app.schemas.lesson import AttemptOut, CheckAnswerIn, CheckAnswerOut, LessonOut, StartAttemptIn
 
 router = APIRouter(prefix="/lessons", tags=["lessons"])
 
@@ -19,14 +20,22 @@ def get_lesson(lesson_id: int, user: CurrentUser, service: LessonServiceDep) -> 
 @router.post(
     "/{lesson_id}/attempts",
     summary="Start a lesson attempt, or resume the active one",
-    description="201 when a new attempt is created, 200 when the in-progress attempt is resumed.",
+    description=(
+        "201 when a new attempt is created, 200 when the in-progress attempt is resumed. "
+        'Optional body `{"mode": "legendary"}` starts a Legendary challenge on a completed lesson.'
+    ),
     status_code=status.HTTP_201_CREATED,
     responses={200: {"model": AttemptOut, "description": "Resumed"}, **errors(403, 404, 409)},
 )
 def start_attempt(
-    lesson_id: int, response: Response, user: CurrentUser, service: LessonServiceDep
+    lesson_id: int,
+    response: Response,
+    user: CurrentUser,
+    service: LessonServiceDep,
+    body: StartAttemptIn | None = None,
 ) -> AttemptOut:
-    attempt, created = service.start_attempt(user, lesson_id)
+    mode = body.mode if body else AttemptMode.STANDARD
+    attempt, created = service.start_attempt(user, lesson_id, mode)
     if not created:
         response.status_code = status.HTTP_200_OK
     return attempt

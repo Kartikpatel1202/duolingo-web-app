@@ -1,8 +1,14 @@
 from fastapi import APIRouter
 
-from app.api.deps import CourseServiceDep, CurrentUser
+from app.api.deps import CourseServiceDep, CurrentUser, GuidebookServiceDep
 from app.api.responses import errors
-from app.schemas.course import CourseDetailOut, CourseListOut, PathOut, SkillDetailOut
+from app.schemas.course import (
+    CourseDetailOut,
+    CourseListOut,
+    GuidebookOut,
+    PathOut,
+    SkillDetailOut,
+)
 
 router = APIRouter(tags=["courses"])
 
@@ -38,3 +44,13 @@ def get_path(course_id: int, user: CurrentUser, service: CourseServiceDep) -> Pa
 )
 def get_skill(skill_id: int, user: CurrentUser, service: CourseServiceDep) -> SkillDetailOut:
     return service.skill_detail(user, skill_id)
+
+
+@router.get(
+    "/units/{unit_id}/guidebook",
+    summary="Unit guidebook: key phrases, vocabulary and tips",
+    tags=["guidebook"],
+    responses=errors(404),
+)
+def get_guidebook(unit_id: int, service: GuidebookServiceDep) -> GuidebookOut:
+    return service.for_unit(unit_id)

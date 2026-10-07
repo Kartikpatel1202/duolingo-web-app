@@ -1,6 +1,12 @@
 """Shared attempt access rules used by answer checking and lesson completion."""
 
-from app.domain.errors import AttemptInvalid, AttemptNotFound
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from app.domain import challenge
+from app.domain.enums import AttemptStatus
+from app.domain.errors import AttemptFailed, AttemptInvalid, AttemptNotFound
 from app.models import LessonAttempt, User
 from app.repositories import AttemptRepository
 
@@ -22,3 +28,18 @@ def get_owned_attempt(
             attempt_lesson_id=attempt.lesson_id,
         )
     return attempt
+
+
+def ensure_not_ended(session: Session, attempt: LessonAttempt, now: datetime) -> None:
+    """Challenges end when their time runs out. Expiry is recorded the first time the server
+    notices it (there is no background job), then every further action is refused."""
+    if attempt.status is AttemptStatus.FAILED:
+        raise AttemptFailed(attempt_id=attempt.id)
+    if attempt.status is AttemptStatus.IN_PROGRESS and challenge.is_expired(
+        attempt.mode, attempt.started_at, now
+    ):
+        attempt.status = AttemptStatus.FAILED
+        session.commit()
+        raise AttemptFailed(
+            "Time's up! This challenge has ended.", attempt_id=attempt.id, reason="time_up"
+        )

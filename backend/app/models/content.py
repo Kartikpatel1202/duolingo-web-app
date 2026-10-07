@@ -4,7 +4,7 @@ Content cascades downward. Learner rows reference content with ON DELETE RESTRIC
 models/progress.py), so content with learner history can't be deleted by accident.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,6 +13,9 @@ from app.db.database import Base
 from app.db.types import str_enum
 from app.domain.enums import ExerciseType
 from app.domain.rules import DEFAULT_LESSON_XP
+
+if TYPE_CHECKING:
+    from app.models.guidebook import Guidebook
 
 
 class Course(Base):
@@ -38,16 +41,22 @@ class Unit(Base):
     __table_args__ = (
         UniqueConstraint("course_id", "position"),
         CheckConstraint("position >= 1", name="position_positive"),
+        CheckConstraint("section >= 1", name="section_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
+    # Units are numbered across the whole course; `section` groups them into the course's parts.
     position: Mapped[int]
+    section: Mapped[int] = mapped_column(default=1)
     title: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(String(255))
     theme: Mapped[str] = mapped_column(String(16))
 
     course: Mapped[Course] = relationship(back_populates="units")
+    guidebook: Mapped["Guidebook | None"] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True, uselist=False
+    )
     skills: Mapped[list["Skill"]] = relationship(
         back_populates="unit",
         order_by="Skill.position",

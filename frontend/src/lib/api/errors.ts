@@ -3,6 +3,8 @@
  * responses themselves. The backend's envelope is `{ "error": { code, message, details } }`.
  */
 
+import { BRAND } from "@/lib/brand";
+
 export type ApiErrorKind = "http" | "validation" | "network" | "unknown";
 
 export class ApiError extends Error {
@@ -77,7 +79,7 @@ export function friendlyError(error: unknown): FriendlyError {
   const apiError = toApiError(error);
   if (apiError.kind === "network") {
     return {
-      title: "We can't reach Lingo right now",
+      title: `We can't reach ${BRAND.name} right now`,
       description: "Check your connection and try again.",
     };
   }

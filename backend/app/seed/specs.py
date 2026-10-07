@@ -7,6 +7,8 @@ JSON keeps the content readable and guarantees every lesson exercises every type
 
 from dataclasses import dataclass, field
 
+from app.domain.enums import GuidebookEntryKind, GuidebookSectionKind
+
 
 @dataclass(frozen=True)
 class Word:
@@ -41,11 +43,39 @@ class SkillSpec:
 
 
 @dataclass(frozen=True)
+class GuidebookEntrySpec:
+    kind: GuidebookEntryKind
+    text: str
+    translation: str
+
+
+@dataclass(frozen=True)
+class GuidebookSectionSpec:
+    kind: GuidebookSectionKind
+    title: str
+    body: str | None = None
+    entries: tuple[GuidebookEntrySpec, ...] = ()
+    term_heading: str | None = None
+    translation_heading: str | None = None
+    highlights: tuple[str, ...] = ()
+    footer: str | None = None
+    layout: str = "default"
+
+
+@dataclass(frozen=True)
+class GuidebookSpec:
+    introduction: str
+    sections: tuple[GuidebookSectionSpec, ...]
+
+
+@dataclass(frozen=True)
 class UnitSpec:
     title: str
     description: str
     theme: str
     skills: tuple[SkillSpec, ...]
+    guidebook: GuidebookSpec | None = None
+    section: int = 1  # the part of the course this unit belongs to (shown as "Section N")
 
 
 @dataclass(frozen=True)

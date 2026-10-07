@@ -43,12 +43,12 @@ def test_path_parameter_validation(client: TestClient) -> None:
     assert_error(response.json(), "VALIDATION_ERROR")
 
 
-def test_missing_learner_is_reported_clearly(client: TestClient, db) -> None:  # type: ignore[no-untyped-def]
+def test_a_session_for_a_deleted_learner_is_rejected(client: TestClient, db) -> None:  # type: ignore[no-untyped-def]
+    """The learner comes from the session, so a session whose account is gone is simply invalid."""
     from app.models import User
 
-    learner = db.query(User).filter_by(username="learner").one()
-    learner.username = "someone-else"
+    db.delete(db.query(User).filter_by(username="learner").one())
     db.commit()
     response = client.get("/api/users/me")
-    assert response.status_code == 404
-    assert_error(response.json(), "USER_NOT_FOUND")
+    assert response.status_code == 401
+    assert_error(response.json(), "NOT_AUTHENTICATED")

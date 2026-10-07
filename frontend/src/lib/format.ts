@@ -21,3 +21,12 @@ export function timeUntil(isoDate: string, now: Date = new Date()): string {
 export function formatMonthYear(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString("en", { month: "long", year: "numeric" });
 }
+
+/** English display name of a BCP-47 language code ("es" → "Spanish"); falls back to the code. */
+export function languageName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}

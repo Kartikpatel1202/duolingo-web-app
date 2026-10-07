@@ -33,7 +33,7 @@ class StatsService:
         state = streak_state(user)
         today = self._ctx.today()
         return StreakOut(
-            current=streak_rules.displayed_streak(state, today),
+            current=streak_rules.displayed_streak(state, today, user.streak_freezes),
             longest=state.longest,
             active_today=streak_rules.is_active_today(state, today),
         )

@@ -1,14 +1,13 @@
 """Turns a LessonSpec into exercise rows (deterministically).
 
-Every lesson gets the same 7-step shape, covering all five exercise types:
+Lessons rotate between three layouts so consecutive lessons feel different, while every lesson
+still exercises all five types:
 
-1. multiple_choice  — pick the Spanish word for an English word (with emoji)
-2. match_pairs      — match the four Spanish words to their English meaning
-3. word_bank        — Spanish → English, build sentence 1 from tiles (+ distractors)
-4. fill_blank       — complete sentence 2 by choosing the missing Spanish word
-5. multiple_choice  — pick the English meaning of a Spanish word
-6. type_answer      — English → Spanish, type sentence 3
-7. word_bank        — English → Spanish, build sentence 2 from tiles (+ distractors)
+A (7): pick word · match · tiles es→en · fill · meaning · type en→es · tiles en→es
+B (6): match · fill · meaning · tiles en→es · type en→es · pick word
+C (6): tiles es→en · pick word · type en→es · match · fill · meaning
+
+(pick word = multiple choice with emoji; meaning = multiple choice, Spanish → English.)
 
 Shuffling uses `random.Random(key)` with a fixed per-lesson key, so every run of the seed produces
 byte-identical content.
@@ -16,6 +15,7 @@ byte-identical content.
 
 import random
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
@@ -38,22 +38,55 @@ class ExerciseDraft:
     explanation: str | None = None
 
 
-def build_lesson(spec: LessonSpec, key: str) -> list[ExerciseDraft]:
+Step = Callable[[LessonSpec, random.Random], "ExerciseDraft"]
+
+
+def build_lesson(spec: LessonSpec, key: str, layout: int = 0) -> list[ExerciseDraft]:
+    """Exercises for one lesson; `layout` picks one of LAYOUTS (rotated by the seeder)."""
     rng = random.Random(key)
-    w1, w2, _, _ = spec.words
-    s1, s2, s3 = spec.sentences
-    drafts = [
-        _choose_spanish_word(spec.words, w1, rng),
-        _match_pairs(spec.words, rng),
-        _word_bank(s1, spec.sentences, to_spanish=False, rng=rng),
-        _fill_blank(s2, spec, rng),
-        _choose_english_meaning(spec.words, w2, rng),
-        _type_answer(s3),
-        _word_bank(s2, spec.sentences, to_spanish=True, rng=rng),
-    ]
+    drafts = [step(spec, rng) for step in LAYOUTS[layout % len(LAYOUTS)]]
     for draft in drafts:  # fail fast on inconsistent content
         get_checker(draft.type).validate_definition(draft.content, draft.solution)
     return drafts
+
+
+def _layouts() -> tuple[tuple[Step, ...], ...]:
+    def word(i: int) -> Step:
+        return lambda spec, rng: _choose_spanish_word(spec.words, spec.words[i], rng)
+
+    def meaning(i: int) -> Step:
+        return lambda spec, rng: _choose_english_meaning(spec.words, spec.words[i], rng)
+
+    def tiles(i: int, *, to_spanish: bool) -> Step:
+        return lambda spec, rng: _word_bank(
+            spec.sentences[i], spec.sentences, to_spanish=to_spanish, rng=rng
+        )
+
+    def fill(i: int) -> Step:
+        return lambda spec, rng: _fill_blank(spec.sentences[i], spec, rng)
+
+    def typed(i: int) -> Step:
+        return lambda spec, rng: _type_answer(spec.sentences[i])
+
+    def match() -> Step:
+        return lambda spec, rng: _match_pairs(spec.words, rng)
+
+    return (
+        (
+            word(0),
+            match(),
+            tiles(0, to_spanish=False),
+            fill(1),
+            meaning(1),
+            typed(2),
+            tiles(1, to_spanish=True),
+        ),
+        (match(), fill(0), meaning(2), tiles(2, to_spanish=True), typed(1), word(3)),
+        (tiles(1, to_spanish=False), word(1), typed(0), match(), fill(2), meaning(3)),
+    )
+
+
+LAYOUTS = _layouts()
 
 
 # --- exercise builders -----------------------------------------------------------------------
@@ -67,10 +100,12 @@ def _choose_spanish_word(
         {"id": _OPTION_IDS[i], "text": word.es, "emoji": word.emoji}
         for i, word in enumerate(shuffled)
     ]
+    # "the cat" -> “cat”: the article is part of the vocabulary entry, not of the question.
+    asked = target.en.removeprefix("the ").removeprefix("a ")
     return ExerciseDraft(
         type=ExerciseType.MULTIPLE_CHOICE,
-        prompt=f'Which one is "{target.en}"?',
-        content={"options": options},
+        prompt=f"Which one of these is “{asked}”?",
+        content={"options": options, "options_language": "es", "label": "new_word"},
         solution={"correct_option_id": _OPTION_IDS[shuffled.index(target)]},
     )
 
@@ -83,7 +118,12 @@ def _choose_english_meaning(
     return ExerciseDraft(
         type=ExerciseType.MULTIPLE_CHOICE,
         prompt="What does this mean?",
-        content={"source_text": target.es, "options": options},
+        content={
+            "source_text": target.es,
+            "source_language": "es",
+            "options": options,
+            "options_language": "en",
+        },
         solution={"correct_option_id": _OPTION_IDS[shuffled.index(target)]},
     )
 
@@ -98,7 +138,7 @@ def _match_pairs(words: tuple[Word, ...], rng: random.Random) -> ExerciseDraft:
     return ExerciseDraft(
         type=ExerciseType.MATCH_PAIRS,
         prompt="Tap the matching pairs",
-        content={"left": left, "right": right},
+        content={"left": left, "right": right, "left_language": "es", "right_language": "en"},
         solution={"pairs": pairs},
     )
 
@@ -126,7 +166,12 @@ def _word_bank(
     return ExerciseDraft(
         type=ExerciseType.WORD_BANK,
         prompt="Translate this sentence",
-        content={"source_text": source, "tiles": tiles},
+        content={
+            "source_text": source,
+            "source_language": "en" if to_spanish else "es",
+            "tiles": tiles,
+            "tiles_language": "es" if to_spanish else "en",
+        },
         solution={"accepted": [target, *buildable]},
         explanation=sentence.tip,
     )
@@ -152,6 +197,7 @@ def _fill_blank(sentence: Sentence, spec: LessonSpec, rng: random.Random) -> Exe
             "before": sentence.es[: match.start()].strip(),
             "after": sentence.es[match.end() :].strip(),
             "translation": sentence.en,
+            "language": "es",
             "options": options,
         },
         solution={"accepted": [sentence.blank]},

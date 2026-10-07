@@ -24,6 +24,7 @@ class FillBlankContent(ExerciseModel):
     before: str = ""
     after: str = ""
     translation: str | None = None
+    language: str | None = None  # language hint (BCP-47) for text-to-speech
     options: list[str] | None = Field(default=None, min_length=2, max_length=6)
 
 
@@ -34,6 +35,11 @@ class FillBlankSolution(ExerciseModel):
 class FillBlankAnswer(ExerciseModel):
     type: Literal["fill_blank"] = "fill_blank"
     text: str = Field(max_length=100)
+
+
+class FillBlankReveal(ExerciseModel):
+    type: Literal["fill_blank"] = "fill_blank"
+    text: str
 
 
 class FillBlankChecker(ExerciseChecker[FillBlankContent, FillBlankSolution, FillBlankAnswer]):
@@ -67,6 +73,9 @@ class FillBlankChecker(ExerciseChecker[FillBlankContent, FillBlankSolution, Fill
             correct_answer=join_sentence(content.before, shown, content.after),
             note=note,
         )
+
+    def reveal(self, content: FillBlankContent, solution: FillBlankSolution) -> FillBlankReveal:
+        return FillBlankReveal(text=solution.accepted[0])
 
     def sample_correct_answer(
         self, content: FillBlankContent, solution: FillBlankSolution

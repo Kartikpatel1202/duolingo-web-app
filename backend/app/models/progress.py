@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 from app.db.types import UTCDateTime, str_enum
-from app.domain.enums import AttemptStatus
+from app.domain.enums import AttemptMode, AttemptStatus
 
 
 def new_attempt_id() -> str:
@@ -20,8 +20,9 @@ class LessonAttempt(Base):
     """One play-through of a lesson: the integrity anchor for answer checks and completion.
 
     Solved exercises, mistakes and XP awarded are derived from `answers` and xp_events.
-    The partial unique index allows at most one in-progress attempt per learner and lesson,
-    so "start lesson" resumes instead of duplicating.
+    The partial unique index allows at most one in-progress attempt per learner, lesson and mode,
+    so "start lesson" resumes instead of duplicating. `mode` selects the rules in
+    app.domain.challenge (standard lesson vs. Legendary challenge).
     """
 
     __tablename__ = "lesson_attempts"
@@ -35,6 +36,7 @@ class LessonAttempt(Base):
             "uq_lesson_attempts_one_active",
             "user_id",
             "lesson_id",
+            "mode",
             unique=True,
             sqlite_where=text("status = 'in_progress'"),
         ),
@@ -43,6 +45,9 @@ class LessonAttempt(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_attempt_id)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="RESTRICT"))
+    mode: Mapped[AttemptMode] = mapped_column(
+        str_enum(AttemptMode, "attempt_mode"), default=AttemptMode.STANDARD
+    )
     status: Mapped[AttemptStatus] = mapped_column(
         str_enum(AttemptStatus, "attempt_status"), default=AttemptStatus.IN_PROGRESS
     )

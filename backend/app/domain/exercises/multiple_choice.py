@@ -23,6 +23,10 @@ class ChoiceOption(ExerciseModel):
 
 class MultipleChoiceContent(ExerciseModel):
     source_text: str | None = None
+    source_language: str | None = None  # language hints (BCP-47) for text-to-speech
+    options_language: str | None = None
+    # Set on picture cards that introduce a word, so the player can tag them "New word".
+    label: Literal["new_word"] | None = None
     options: list[ChoiceOption] = Field(min_length=2, max_length=6)
 
 
@@ -33,6 +37,11 @@ class MultipleChoiceSolution(ExerciseModel):
 class MultipleChoiceAnswer(ExerciseModel):
     type: Literal["multiple_choice"] = "multiple_choice"
     option_id: str = Field(min_length=1, max_length=16)
+
+
+class MultipleChoiceReveal(ExerciseModel):
+    type: Literal["multiple_choice"] = "multiple_choice"
+    correct_option_id: str
 
 
 class MultipleChoiceChecker(
@@ -66,6 +75,11 @@ class MultipleChoiceChecker(
             is_correct=answer.option_id == solution.correct_option_id,
             correct_answer=correct.text,
         )
+
+    def reveal(
+        self, content: MultipleChoiceContent, solution: MultipleChoiceSolution
+    ) -> MultipleChoiceReveal:
+        return MultipleChoiceReveal(correct_option_id=solution.correct_option_id)
 
     def sample_correct_answer(
         self, content: MultipleChoiceContent, solution: MultipleChoiceSolution

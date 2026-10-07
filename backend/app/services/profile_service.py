@@ -1,3 +1,4 @@
+from app.domain.rules import LEAGUE_NAME
 from app.models import User
 from app.repositories import ProgressRepository
 from app.schemas.gamification import ProfileOut, ProfileStatsOut, ProfileUserOut
@@ -33,6 +34,8 @@ class ProfileService:
                 skills_completed=len(self._progress.completed_skill_ids(user.id)),
                 weekly_xp=standing.xp,
                 league_rank=standing.rank,
+                league_name=LEAGUE_NAME,
+                top_finishes=self._leaderboard.top_finishes(user),
             ),
             achievements=self._achievements.overview(user),
         )

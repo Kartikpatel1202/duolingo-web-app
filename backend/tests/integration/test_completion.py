@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import UserLessonProgress, XpEvent
-from tests.helpers import Api, correct_answer
+from tests.helpers import TOTAL_LESSONS, TOTAL_SKILLS, Api, correct_answer
 
 
 def total_xp(api: Api) -> int:
@@ -104,10 +104,9 @@ def test_completing_the_last_lesson_completes_the_skill_and_unlocks_the_next(api
 
 
 def test_unlocks_cross_unit_boundaries(api: Api) -> None:
-    for skill in (1, 2, 3):
-        for lesson in (1, 2):
-            api.play(api.lesson_id(1, skill, lesson))
+    api.play_unit(1)
     path = api.get("/api/courses/1/path")
+    assert {skill["status"] for skill in path["units"][0]["skills"]} == {"completed"}
     assert path["units"][1]["skills"][0]["status"] == "available"
     assert path["current_lesson_id"] == api.lesson_id(2, 1, 1)
 
@@ -136,10 +135,10 @@ def test_progress_summary(api: Api) -> None:
         {
             "course_id": 1,
             "lessons_completed": 2,
-            "total_lessons": 18,
+            "total_lessons": TOTAL_LESSONS,
             "skills_completed": 1,
-            "total_skills": 9,
-            "progress": 0.1111,
+            "total_skills": TOTAL_SKILLS,
+            "progress": round(2 / TOTAL_LESSONS, 4),
         }
     ]
     assert progress["last_7_days"][-1] == {"date": "2026-10-07", "xp": 25}

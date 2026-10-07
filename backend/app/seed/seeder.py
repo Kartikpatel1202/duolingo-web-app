@@ -21,19 +21,40 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.clock import Clock, FixedClock
 from app.core.config import Settings
 from app.db.database import reset_schema
+from app.domain.auth import hash_password
 from app.domain.enums import ExerciseType, XpSource
 from app.domain.exercises import get_checker
 from app.domain.leaderboard import week_start
 from app.domain.rules import MAX_HEARTS, STARTING_GEMS
 from app.domain.xp import XpAward
-from app.models import Achievement, Course, Exercise, Lesson, LessonAttempt, Skill, Unit, User
+from app.models import (
+    Achievement,
+    Course,
+    Exercise,
+    Guidebook,
+    GuidebookEntry,
+    GuidebookSection,
+    Lesson,
+    LessonAttempt,
+    Skill,
+    Unit,
+    User,
+)
 from app.repositories import XpRepository
 from app.schemas.lesson import CheckAnswerIn
 from app.schemas.progress import CompleteLessonIn
 from app.seed.builder import build_lesson
-from app.seed.people import ACHIEVEMENTS, LEARNER_AVATAR_COLOR, LEARNER_DISPLAY_NAME, RIVALS
+from app.seed.people import (
+    ACHIEVEMENTS,
+    LEARNER_AVATAR_COLOR,
+    LEARNER_DISPLAY_NAME,
+    LEARNER_EMAIL,
+    LEARNER_PASSWORD,
+    LEARNER_PASSWORD_SALT,
+    RIVALS,
+)
 from app.seed.spanish_course import SPANISH_COURSE
-from app.seed.specs import CourseSpec
+from app.seed.specs import CourseSpec, GuidebookSpec
 from app.services.answer_service import AnswerService
 from app.services.completion_service import CompletionService
 from app.services.context import ServiceContext
@@ -86,6 +107,11 @@ def seed_database(
             course,
             now,
         )
+        if learner.password_hash is None:  # first seed only: never reset an existing password
+            learner.email = LEARNER_EMAIL
+            learner.password_hash = hash_password(
+                LEARNER_PASSWORD, LEARNER_PASSWORD_SALT, settings.password_iterations
+            )
         rivals = [
             _upsert_user(session, r.username, r.display_name, r.avatar_color, course, now, bot=True)
             for r in RIVALS
@@ -123,15 +149,19 @@ def _upsert_course(session: Session, spec: CourseSpec) -> Course:
     course.from_language = spec.from_language
     course.description = spec.description
 
+    lesson_index = 0  # position in the whole course; rotates the exercise layouts
     for unit_position, unit_spec in enumerate(spec.units, start=1):
         unit = _child(course.units, unit_position) or Unit(position=unit_position)
         if unit not in course.units:
             course.units.append(unit)
-        unit.title, unit.description, unit.theme = (
+        unit.title, unit.description, unit.theme, unit.section = (
             unit_spec.title,
             unit_spec.description,
             unit_spec.theme,
+            unit_spec.section,
         )
+
+        _upsert_guidebook(unit, unit_spec.guidebook)
 
         for skill_position, skill_spec in enumerate(unit_spec.skills, start=1):
             skill = _child(unit.skills, skill_position) or Skill(position=skill_position)
@@ -146,7 +176,13 @@ def _upsert_course(session: Session, spec: CourseSpec) -> Course:
                     skill.lessons.append(lesson)
                 lesson.title = lesson_spec.title
                 key = f"{spec.slug}/{unit_position}/{skill_position}/{lesson_position}"
-                for position, draft in enumerate(build_lesson(lesson_spec, key), start=1):
+                drafts = build_lesson(lesson_spec, key, layout=lesson_index)
+                lesson_index += 1
+                # Content edits that shorten a lesson drop the surplus exercises (only possible
+                # while no answers reference them — otherwise use `python -m app.seed --reset`).
+                for surplus in lesson.exercises[len(drafts) :]:
+                    lesson.exercises.remove(surplus)
+                for position, draft in enumerate(drafts, start=1):
                     exercise = _child(lesson.exercises, position) or Exercise(position=position)
                     if exercise not in lesson.exercises:
                         lesson.exercises.append(exercise)
@@ -157,6 +193,47 @@ def _upsert_course(session: Session, spec: CourseSpec) -> Course:
                     exercise.explanation = draft.explanation
     session.flush()
     return course
+
+
+def _upsert_guidebook(unit: Unit, spec: GuidebookSpec | None) -> None:
+    """Mirror the spec onto the unit's guidebook; rows are matched by position, like lessons."""
+    if spec is None:
+        unit.guidebook = None
+        return
+    guidebook = unit.guidebook or Guidebook()
+    unit.guidebook = guidebook
+    guidebook.introduction = spec.introduction
+    for surplus in guidebook.sections[len(spec.sections) :]:
+        guidebook.sections.remove(surplus)
+    for section_position, section_spec in enumerate(spec.sections, start=1):
+        section = _child(guidebook.sections, section_position) or GuidebookSection(
+            position=section_position
+        )
+        if section not in guidebook.sections:
+            guidebook.sections.append(section)
+        section.kind, section.title, section.body = (
+            section_spec.kind,
+            section_spec.title,
+            section_spec.body,
+        )
+        section.term_heading = section_spec.term_heading
+        section.translation_heading = section_spec.translation_heading
+        section.highlights = ",".join(section_spec.highlights) or None
+        section.footer = section_spec.footer
+        section.layout = None if section_spec.layout == "default" else section_spec.layout
+        for surplus_entry in section.entries[len(section_spec.entries) :]:
+            section.entries.remove(surplus_entry)
+        for entry_position, entry_spec in enumerate(section_spec.entries, start=1):
+            entry = _child(section.entries, entry_position) or GuidebookEntry(
+                position=entry_position
+            )
+            if entry not in section.entries:
+                section.entries.append(entry)
+            entry.kind, entry.text, entry.translation = (
+                entry_spec.kind,
+                entry_spec.text,
+                entry_spec.translation,
+            )
 
 
 def _child(children: Sequence[_Positioned], position: int) -> Any:
@@ -252,15 +329,12 @@ def _play_demo_progress(
 def _play_lesson(ctx: ServiceContext, learner: User, lesson: Lesson, *, with_mistake: bool) -> None:
     attempt, _ = LessonService(ctx).start_attempt(learner, lesson.id)
     answers = AnswerService(ctx)
+    first_choice = next(e for e in lesson.exercises if e.type is ExerciseType.MULTIPLE_CHOICE)
     for exercise in lesson.exercises:
         checker = get_checker(exercise.type)
         content = checker.parse_content(exercise.content)
         solution = checker.parse_solution(exercise.solution)
-        if (
-            with_mistake
-            and exercise.position == 1
-            and exercise.type is ExerciseType.MULTIPLE_CHOICE
-        ):
+        if with_mistake and exercise is first_choice:
             wrong = next(o.id for o in content.options if o.id != solution.correct_option_id)
             answers.check(
                 learner,

@@ -41,11 +41,15 @@ def test_correct_answer(
     assert body["is_correct"] is True
     assert body["hearts"]["current"] == 5
     assert body["attempt"] == {
+        "status": "in_progress",
         "solved_count": 1,
         "total_exercises": 7,
         "mistakes": 0,
+        "mistakes_remaining": None,
         "can_complete": False,
     }
+    assert body["heart_lost"] is False
+    assert body["reveal"]["type"] == exercise.type.value
 
 
 @pytest.mark.parametrize("index", range(7), ids=lambda i: f"exercise-{i + 1}")
@@ -57,7 +61,9 @@ def test_incorrect_answer_costs_one_heart_for_every_type(
     body = response.json()
     assert response.status_code == 200
     assert body["is_correct"] is False
+    assert body["heart_lost"] is True
     assert body["correct_answer"]  # revealed after checking, for the feedback sheet
+    assert body["reveal"]["type"] == exercise.type.value  # structured, for highlighting
     assert body["hearts"]["current"] == 4
     assert body["hearts"]["next_heart_at"] == "2026-10-07T10:30:00Z"
     assert body["attempt"]["mistakes"] == 1

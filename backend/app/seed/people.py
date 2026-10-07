@@ -14,6 +14,11 @@ class RivalSpec:
 
 
 LEARNER_DISPLAY_NAME = "Alex"
+# Demo sign-in for the seeded learner (documented in the README; change them for real use).
+LEARNER_EMAIL = "alex@example.com"
+LEARNER_PASSWORD = "learn-spanish"
+# A fixed salt keeps the seed deterministic; real accounts would get a random salt each.
+LEARNER_PASSWORD_SALT = b"lingo-demo-seed-salt"
 LEARNER_AVATAR_COLOR = "sky"
 
 RIVALS: tuple[RivalSpec, ...] = (

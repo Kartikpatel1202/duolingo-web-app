@@ -27,6 +27,8 @@ class PairItem(ExerciseModel):
 class MatchPairsContent(ExerciseModel):
     left: list[PairItem] = Field(min_length=2, max_length=6)
     right: list[PairItem] = Field(min_length=2, max_length=6)
+    left_language: str | None = None  # language hints (BCP-47) for text-to-speech
+    right_language: str | None = None
 
 
 class MatchPairsSolution(ExerciseModel):
@@ -41,6 +43,11 @@ class SubmittedPair(ExerciseModel):
 class MatchPairsAnswer(ExerciseModel):
     type: Literal["match_pairs"] = "match_pairs"
     pairs: list[SubmittedPair] = Field(min_length=1, max_length=6)
+
+
+class MatchPairsReveal(ExerciseModel):
+    type: Literal["match_pairs"] = "match_pairs"
+    pairs: list[SubmittedPair]
 
 
 class MatchPairsChecker(ExerciseChecker[MatchPairsContent, MatchPairsSolution, MatchPairsAnswer]):
@@ -75,6 +82,9 @@ class MatchPairsChecker(ExerciseChecker[MatchPairsContent, MatchPairsSolution, M
             is_correct=submitted == solution.pairs,
             correct_answer=self._describe(content, solution),
         )
+
+    def reveal(self, content: MatchPairsContent, solution: MatchPairsSolution) -> MatchPairsReveal:
+        return MatchPairsReveal(pairs=self.sample_correct_answer(content, solution).pairs)
 
     def sample_correct_answer(
         self, content: MatchPairsContent, solution: MatchPairsSolution

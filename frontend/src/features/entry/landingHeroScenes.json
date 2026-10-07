@@ -1,0 +1,80 @@
+[
+  {
+    "name": "friends",
+    "width": 401,
+    "height": 413,
+    "layers": [
+      {
+        "src": "/brand/landing-hero/friends/layer-1.png",
+        "left": 18.204,
+        "top": 54.722,
+        "width": 54.115,
+        "height": 37.046,
+        "share": 0.1001
+      },
+      {
+        "src": "/brand/landing-hero/friends/layer-2.png",
+        "left": 54.364,
+        "top": 34.867,
+        "width": 42.893,
+        "height": 32.93,
+        "share": 0.0798
+      },
+      {
+        "src": "/brand/landing-hero/friends/layer-3.png",
+        "left": 28.18,
+        "top": 37.772,
+        "width": 24.688,
+        "height": 22.034,
+        "share": 0.0357
+      },
+      {
+        "src": "/brand/landing-hero/friends/layer-4.png",
+        "left": 35.661,
+        "top": 17.676,
+        "width": 28.678,
+        "height": 20.581,
+        "share": 0.0264
+      },
+      {
+        "src": "/brand/landing-hero/friends/layer-5.png",
+        "left": 15.212,
+        "top": 20.339,
+        "width": 18.204,
+        "height": 25.908,
+        "share": 0.0207
+      },
+      {
+        "src": "/brand/landing-hero/friends/layer-6.png",
+        "left": 63.84,
+        "top": 12.833,
+        "width": 22.444,
+        "height": 15.738,
+        "share": 0.0184
+      }
+    ]
+  },
+  {
+    "name": "phone",
+    "width": 392,
+    "height": 387,
+    "layers": [
+      {
+        "src": "/brand/landing-hero/phone/layer-1.png",
+        "left": 19.643,
+        "top": 23.256,
+        "width": 56.122,
+        "height": 71.059,
+        "share": 0.3004
+      },
+      {
+        "src": "/brand/landing-hero/phone/layer-2.png",
+        "left": 34.949,
+        "top": 44.444,
+        "width": 29.082,
+        "height": 25.065,
+        "share": 0.0591
+      }
+    ]
+  }
+]

@@ -13,7 +13,7 @@ from app.main import create_app
 from app.models import LeaderboardEntry, User, XpEvent
 from app.seed.seeder import reset_and_seed
 from tests.conftest import NOW
-from tests.helpers import Api, wrong_answer
+from tests.helpers import Api, sign_in, wrong_answer
 
 DAY = timedelta(days=1)
 
@@ -64,7 +64,7 @@ def test_streak_day_boundary_follows_app_timezone(settings: Settings) -> None:
     app = create_app(kolkata, clock)
     reset_and_seed(app.state.engine, app.state.session_factory, clock, kolkata, demo_progress=False)
     with TestClient(app) as client:
-        api = Api(client, app.state.session_factory)
+        api = Api(sign_in(client), app.state.session_factory)
         api.play(api.lesson_id(1, 1, 1))
         clock.advance(timedelta(hours=2))  # 00:30 Oct 8 in Kolkata — a new learning day
         assert api.play(api.lesson_id(1, 1, 2))["streak"]["current"] == 2
@@ -214,6 +214,8 @@ def test_profile(api: Api) -> None:
         "skills_completed": 0,
         "weekly_xp": 15,
         "league_rank": profile["stats"]["league_rank"],
+        "league_name": "Silver League",
+        "top_finishes": 0,
     }
     earned = {a["code"] for a in profile["achievements"] if a["earned_at"]}
     assert earned == {"first_lesson", "perfect_1"}

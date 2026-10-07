@@ -25,8 +25,8 @@
   --color-cherry-50: #fff0f0;
   --color-cherry-100: #ffe0e1;
   --color-cherry-400: #ff6b6e;
-  --color-cherry-500: #f2484c;
-  --color-cherry-600: #c93338;
+  --color-cherry-500: #ff4b4b;
+  --color-cherry-600: #ea2b2b;
   --color-cherry-700: #a8272c;
 
   /* Rewards: XP, crowns, completed skills */
@@ -41,9 +41,13 @@
   --color-sky-50: #ebf8ff;
   --color-sky-100: #d4f0fe;
   --color-sky-400: #4cc3f5;
-  --color-sky-500: #1cb0f0;
-  --color-sky-600: #1690c9;
+  --color-sky-500: #1cb0f6;
+  --color-sky-600: #1899d6;
   --color-sky-700: #0f6f9e;
+
+  /* Super promotion */
+  --color-indigo-500: #3c4dff;
+  --color-indigo-600: #3e2ff2;
 
   /* Accent, achievements, unit 3 */
   --color-grape-50: #f6edff;
@@ -52,13 +56,41 @@
   --color-grape-600: #8f4cd0;
   --color-grape-700: #7238ab;
 
+  /* Unit colours used only on the path */
+  --color-purple-50: #f7ecff;
+  --color-purple-100: #eed6ff;
+  --color-purple-500: #ce82ff;
+  --color-purple-600: #a855f7;
+  --color-purple-700: #8a3fd1;
+  --color-lime-50: #f0fbe1;
+  --color-lime-100: #e0f7c2;
+  --color-lime-500: #58cc02;
+  --color-lime-600: #46a302;
+  --color-lime-700: #3f7d00;
+  --color-teal-50: #e3faf3;
+  --color-teal-100: #c8f4e6;
+  --color-teal-500: #00cd9c;
+  --color-teal-600: #00a881;
+  --color-teal-700: #0b7f5e;
+  --color-pink-50: #fff0f8;
+  --color-pink-100: #ffdcee;
+  --color-pink-500: #ff86d0;
+  --color-pink-600: #e860b3;
+  --color-pink-700: #b53a88;
+
+  /* Friend Streaks banner */
+  --color-blaze-500: #ff5900;
+  --color-blaze-600: #d94a00;
+
   /* Streak flame */
   --color-ember-50: #fff4e8;
   --color-ember-100: #ffe6c9;
-  --color-ember-500: #ff9324;
-  --color-ember-600: #e0700a;
+  --color-ember-500: #ff9600;
+  --color-ember-600: #e08200;
 
-  /* Neutrals */
+  /* Neutrals (light theme values; dark overrides live in globals.css) */
+  --color-surface: #ffffff;
+  --color-scrim: #33424a;
   --color-ink: #33424a;
   --color-ink-soft: #56656d;
   --color-muted: #7d8d96;

@@ -5,6 +5,7 @@ from typing import Any
 from app.schemas.common import ErrorResponse
 
 _DESCRIPTIONS = {
+    401: "Not signed in, or the email/password is wrong (NOT_AUTHENTICATED, INVALID_CREDENTIALS)",
     403: "Forbidden (e.g. LESSON_LOCKED)",
     404: "Resource not found",
     409: "Conflict with the current state (e.g. OUT_OF_HEARTS)",

@@ -18,6 +18,8 @@ export interface PanelProps {
 export interface DialogFrameProps {
   open: boolean;
   onClose: () => void;
+  /** When false, Escape and the backdrop do nothing — the dialog's own buttons decide. */
+  dismissible?: boolean;
   /** id of the element that names the dialog. */
   labelledBy: string;
   /** Wrapper that positions the panel (centred vs. bottom). */
@@ -30,7 +32,14 @@ export interface DialogFrameProps {
  * Behaviour shared by Modal and BottomSheet: portal, dimmed overlay, Escape to close, focus moved
  * into the dialog and trapped there, focus restored on close, and background scroll locked.
  */
-export function DialogFrame({ open, onClose, labelledBy, placement, renderPanel }: DialogFrameProps) {
+export function DialogFrame({
+  open,
+  onClose,
+  dismissible = true,
+  labelledBy,
+  placement,
+  renderPanel,
+}: DialogFrameProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,7 +57,7 @@ export function DialogFrame({ open, onClose, labelledBy, placement, renderPanel 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        if (dismissible) onClose();
         return;
       }
       if (event.key !== "Tab" || !panelRef.current) return;
@@ -72,7 +81,7 @@ export function DialogFrame({ open, onClose, labelledBy, placement, renderPanel 
       document.body.style.overflow = overflow;
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   if (typeof document === "undefined") return null;
 
@@ -81,11 +90,11 @@ export function DialogFrame({ open, onClose, labelledBy, placement, renderPanel 
       {open && (
         <div className={`fixed inset-0 z-50 flex ${placement}`} role="presentation">
           <motion.div
-            className="absolute inset-0 bg-ink/45"
+            className="absolute inset-0 bg-scrim/60"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={dismissible ? onClose : undefined}
             aria-hidden
           />
           {renderPanel({

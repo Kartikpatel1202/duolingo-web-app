@@ -3,7 +3,7 @@
 from app.domain.enums import SkillStatus
 from app.domain.errors import SkillNotFound
 from app.models import Course, User
-from app.repositories import ContentRepository
+from app.repositories import ContentRepository, RewardRepository
 from app.schemas.course import (
     CourseDetailOut,
     CourseListOut,
@@ -16,6 +16,7 @@ from app.schemas.course import (
 )
 from app.services.context import ServiceContext
 from app.services.course_progress import CourseProgress, CourseProgressService
+from app.services.reward_service import unit_chest
 
 
 def course_out(course: Course) -> CourseOut:
@@ -32,6 +33,7 @@ def course_out(course: Course) -> CourseOut:
 class CourseService:
     def __init__(self, ctx: ServiceContext) -> None:
         self._content = ContentRepository(ctx.session)
+        self._rewards = RewardRepository(ctx.session)
         self._course_progress = CourseProgressService(ctx)
 
     def list_courses(self) -> CourseListOut:
@@ -52,6 +54,7 @@ class CourseService:
 
     def path(self, user: User, course_id: int) -> PathOut:
         progress = self._course_progress.load(user.id, course_id)
+        claimed_chests = self._rewards.claimed_keys(user.id, "chest:")
         current = progress.current_skill()
         return PathOut(
             course=course_out(progress.course),
@@ -61,10 +64,12 @@ class CourseService:
                 PathUnitOut(
                     id=unit.id,
                     position=unit.position,
+                    section=unit.section,
                     title=unit.title,
                     description=unit.description,
                     theme=unit.theme,
                     skills=[self._path_skill(progress, skill.id) for skill in unit.skills],
+                    chest=unit_chest(unit, progress, claimed_chests),
                 )
                 for unit in progress.course.units
             ],
@@ -91,6 +96,7 @@ class CourseService:
                     xp_reward=lesson.xp_reward,
                     exercise_count=counts.get(lesson.id, 0),
                     status=statuses[lesson.id],
+                    legendary=lesson.id in progress.legendary_lessons,
                 )
                 for lesson in skill.lessons
             ],
@@ -111,4 +117,5 @@ class CourseService:
             total_lessons=len(skill.lessons),
             progress=progress.progress(skill),
             next_lesson_id=None if status is SkillStatus.LOCKED else progress.next_lesson_id(skill),
+            legendary=progress.is_skill_legendary(skill),
         )

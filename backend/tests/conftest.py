@@ -16,7 +16,7 @@ from app.core.clock import FixedClock
 from app.core.config import Settings
 from app.main import create_app
 from app.seed.seeder import reset_and_seed
-from tests.helpers import Api
+from tests.helpers import Api, sign_in
 
 NOW = datetime(2026, 10, 7, 10, 0, tzinfo=UTC)  # a Wednesday
 
@@ -29,11 +29,12 @@ def clock() -> FixedClock:
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        _env_file=None,  # type: ignore[call-arg]
+        _env_file=None,
         app_env="test",
         database_url="sqlite://",
         app_timezone="UTC",
         enable_test_routes=True,
+        password_iterations=1_000,  # hashing strength is not what these tests measure
     )
 
 
@@ -51,9 +52,17 @@ def app(settings: Settings, clock: FixedClock) -> FastAPI:
 
 
 @pytest.fixture
-def client(app: FastAPI) -> Iterator[TestClient]:
+def anonymous(app: FastAPI) -> Iterator[TestClient]:
+    """A client with no session, for testing sign-in and the 401 responses."""
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def client(app: FastAPI) -> Iterator[TestClient]:
+    """A client signed in as the seeded learner (through the real login endpoint)."""
+    with TestClient(app) as test_client:
+        yield sign_in(test_client)
 
 
 @pytest.fixture

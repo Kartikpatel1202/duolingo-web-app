@@ -3,11 +3,14 @@
 Guarantees:
 * every validation happens before any write, so a rejected request never costs a heart;
 * the answer row and the heart deduction are committed in one transaction (both or neither);
-* a retried request with the same submission_id returns the stored result without side effects.
+* a retried request with the same submission_id returns the stored result without side effects;
+* the attempt's mode decides the cost of a mistake: a heart (standard) or one of a limited number
+  of mistakes (challenges, see app.domain.challenge).
 """
 
 from sqlalchemy.exc import IntegrityError
 
+from app.domain import challenge
 from app.domain.enums import AttemptStatus
 from app.domain.errors import (
     AlreadyCompleted,
@@ -17,10 +20,11 @@ from app.domain.errors import (
     LessonNotFound,
 )
 from app.domain.exercises import CheckResult, get_checker
+from app.domain.exercises.base import ExerciseModel
 from app.models import AttemptAnswer, Exercise, Lesson, LessonAttempt, User
 from app.repositories import AttemptRepository, ContentRepository
 from app.schemas.lesson import AttemptProgressOut, CheckAnswerIn, CheckAnswerOut
-from app.services.attempts import get_owned_attempt
+from app.services.attempts import ensure_not_ended, get_owned_attempt
 from app.services.context import ServiceContext
 from app.services.hearts_service import HeartsService
 
@@ -45,10 +49,13 @@ class AnswerService:
 
         if attempt.status is AttemptStatus.COMPLETED:
             raise AlreadyCompleted(attempt_id=attempt.id)
+        ensure_not_ended(self._ctx.session, attempt, self._ctx.now())
         exercise = self._exercise_in(lesson, request.exercise_id)
         if exercise.id in self._attempts.solved_exercise_ids(attempt.id):
             raise ExerciseAlreadySolved(exercise_id=exercise.id)
-        self._hearts.require_hearts(user)
+        rules = challenge.MODE_RULES[attempt.mode]
+        if rules.costs_hearts:
+            self._hearts.require_hearts(user)
 
         result = self._evaluate(exercise, request)  # raises InvalidAnswer before any write
 
@@ -63,7 +70,10 @@ class AnswerService:
             )
         )
         if not result.is_correct:
-            self._hearts.lose_heart(user)
+            if rules.costs_hearts:
+                self._hearts.lose_heart(user)
+            elif challenge.has_failed(attempt.mode, self._attempts.mistakes(attempt.id)):
+                attempt.status = AttemptStatus.FAILED  # the challenge's last allowed mistake
         try:
             self._ctx.session.commit()
         except IntegrityError:
@@ -117,18 +127,25 @@ class AnswerService:
     ) -> CheckAnswerOut:
         solved = self._attempts.solved_exercise_ids(attempt.id)
         total = len(lesson.exercises)
+        mistakes = self._attempts.mistakes(attempt.id)
+        reveal: ExerciseModel | None = result.reveal
+        assert reveal is not None  # always attached by ExerciseChecker.evaluate()
         return CheckAnswerOut(
             submission_id=submission_id,
             exercise_id=exercise.id,
             is_correct=result.is_correct,
+            heart_lost=not result.is_correct and challenge.MODE_RULES[attempt.mode].costs_hearts,
             correct_answer=result.correct_answer,
+            reveal=reveal,  # a member of RevealOut; Pydantic validates the variant
             note=result.note,
             explanation=exercise.explanation,
             hearts=self._hearts.view(user),
             attempt=AttemptProgressOut(
+                status=attempt.status,
                 solved_count=len(solved),
                 total_exercises=total,
-                mistakes=self._attempts.mistakes(attempt.id),
+                mistakes=mistakes,
+                mistakes_remaining=challenge.mistakes_remaining(attempt.mode, mistakes),
                 can_complete=len(solved) == total,
             ),
         )

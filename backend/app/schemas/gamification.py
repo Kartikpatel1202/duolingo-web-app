@@ -17,8 +17,15 @@ class RefillOut(ApiModel):
     gems: int
 
 
+class LeagueOut(ApiModel):
+    name: str
+    promotion_spots: int
+    demotion_spots: int
+
+
 class LeaderboardRowOut(ApiModel):
     rank: int
+    zone: Literal["promotion", "demotion"] | None
     user_id: int
     display_name: str
     avatar_color: str
@@ -32,6 +39,7 @@ class LeaderboardStandingOut(ApiModel):
 
 
 class LeaderboardOut(ApiModel):
+    league: LeagueOut
     week_start: date
     resets_at: datetime
     entries: list[LeaderboardRowOut]
@@ -54,6 +62,8 @@ class ProfileStatsOut(ApiModel):
     skills_completed: int
     weekly_xp: int
     league_rank: int
+    league_name: str
+    top_finishes: int
 
 
 class ProfileAchievementOut(ApiModel):

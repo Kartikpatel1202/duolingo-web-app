@@ -29,6 +29,8 @@ class WordTile(ExerciseModel):
 
 class WordBankContent(ExerciseModel):
     source_text: str = Field(min_length=1)
+    source_language: str | None = None  # language hints (BCP-47) for text-to-speech
+    tiles_language: str | None = None
     tiles: list[WordTile] = Field(min_length=2, max_length=16)
 
 
@@ -39,6 +41,11 @@ class WordBankSolution(ExerciseModel):
 class WordBankAnswer(ExerciseModel):
     type: Literal["word_bank"] = "word_bank"
     tile_ids: list[str] = Field(min_length=1, max_length=16)
+
+
+class WordBankReveal(ExerciseModel):
+    type: Literal["word_bank"] = "word_bank"
+    tile_ids: list[str]  # one correct ordering, as tile ids
 
 
 def _tokens(sentence: str) -> list[str]:
@@ -74,6 +81,9 @@ class WordBankChecker(ExerciseChecker[WordBankContent, WordBankSolution, WordBan
         built = normalize(" ".join(text_by_id[tile_id] for tile_id in answer.tile_ids))
         accepted = {normalize(sentence) for sentence in solution.accepted}
         return CheckResult(is_correct=built in accepted, correct_answer=solution.accepted[0])
+
+    def reveal(self, content: WordBankContent, solution: WordBankSolution) -> WordBankReveal:
+        return WordBankReveal(tile_ids=self.sample_correct_answer(content, solution).tile_ids)
 
     def sample_correct_answer(
         self, content: WordBankContent, solution: WordBankSolution

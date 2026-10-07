@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import Field
 
-from app.domain.enums import XpSource
+from app.domain.enums import AttemptMode, XpSource
 from app.schemas.common import ApiModel, DailyGoalOut, HeartsOut, StreakOut
 from app.schemas.course import SkillProgressOut
 
@@ -28,6 +28,7 @@ class CompleteLessonOut(ApiModel):
 
     attempt_id: str
     lesson_id: int
+    mode: AttemptMode
     first_completion: bool
     xp_awarded: int
     xp_breakdown: list[XpAwardOut]

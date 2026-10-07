@@ -32,6 +32,10 @@ export function invalidateLearnerState(queryClient: QueryClient): Promise<void> 
     queryKeys.course.all(),
     queryKeys.leaderboardAll(),
     queryKeys.profile(),
+    queryKeys.streakAll(),
+    queryKeys.shop(),
+    queryKeys.quests(),
+    queryKeys.feed(),
   ];
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))).then(
     () => undefined,

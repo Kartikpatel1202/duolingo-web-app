@@ -8,12 +8,16 @@ import { useCoursePath } from "@/hooks/api/useCourse";
 import { useCurrentUser } from "@/hooks/api/useLearner";
 import type { CoursePath } from "@/types/api";
 
-import { CourseHeader } from "./CourseHeader";
+import { ReminderBanner } from "@/features/stats";
+
+import { JumpDialog } from "./JumpDialog";
+import { ScrollToTopButton, UpNextCard } from "./PathExtras";
 import { PathSkeleton } from "./PathSkeleton";
 import { SkillDetailDialog, type SelectedSkill } from "./SkillDetailDialog";
 import { UnitSection } from "./UnitSection";
+import { UNIT_ART } from "./unitArt";
 
-/** The /learn experience: course header + every unit's winding path + skill dialog. */
+/** The /learn experience: every unit's banner and winding path, plus the skill dialog. */
 export function LearnView() {
   const user = useCurrentUser();
   const courseId = user.data?.current_course_id;
@@ -49,11 +53,52 @@ function LearningPath({ path }: { path: CoursePath }) {
     };
   }, [ordered, selectedId]);
 
-  const openSkill = useCallback((skillId: number) => {
-    setSelectedId(skillId);
-    setOpen(true);
-  }, []);
+  // Units with their own look (see `unitArt.ts`) open an unlocked skill as a lesson-intro card
+  // under its node; everything else — and any locked skill, which has to explain itself — opens
+  // the skill dialog.
+  const [introSkillId, setIntroSkillId] = useState<number | null>(null);
+  const closeIntro = useCallback(() => setIntroSkillId(null), []);
+  const openSkill = useCallback(
+    (skillId: number) => {
+      const entry = ordered.find((candidate) => candidate.skill.id === skillId);
+      if (entry && UNIT_ART[entry.unit.position] && entry.skill.status !== "locked") {
+        setOpen(false);
+        setIntroSkillId(skillId);
+        return;
+      }
+      setIntroSkillId(null);
+      setSelectedId(skillId);
+      setOpen(true);
+    },
+    [ordered],
+  );
   const close = useCallback(() => setOpen(false), []);
+
+  // "Jump here?" on a unit that is still ahead of the learner.
+  const [jumpUnitId, setJumpUnitId] = useState<number | null>(null);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const jumpUnit = path.units.find((unit) => unit.id === jumpUnitId) ?? null;
+  const openJump = useCallback(
+    (unitId: number) => {
+      const unit = path.units.find((candidate) => candidate.id === unitId);
+      const first = unit?.skills[0];
+      // Units with their own look answer "Jump here?" with the same inline card as any lesson.
+      if (unit && first && UNIT_ART[unit.position]) {
+        setOpen(false);
+        setIntroSkillId(first.id);
+        return;
+      }
+      setJumpUnitId(unitId);
+      setJumpOpen(true);
+    },
+    [path.units],
+  );
+  const goToCurrentSkill = useCallback(() => {
+    const node = document.querySelector("[data-current-skill]");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    if (path.current_skill_id != null) openSkill(path.current_skill_id);
+  }, [path.current_skill_id, openSkill]);
 
   // Bring the learner's current skill into view on arrival (like opening the game board).
   useEffect(() => {
@@ -74,20 +119,34 @@ function LearningPath({ path }: { path: CoursePath }) {
   const currentSkillId = path.current_skill_id;
   return (
     <div className="space-y-8">
-      <CourseHeader
-        course={path.course}
-        onContinue={currentSkillId != null ? () => openSkill(currentSkillId) : undefined}
-      />
+      {/* The banner of the first unit is the visual title; the page still needs a real h1. */}
+      <h1 className="sr-only">{path.course.title}</h1>
+      {/* Wide screens show the reminder in the right rail instead. */}
+      <ReminderBanner className="xl:hidden" />
       {path.units.map((unit, i) => (
         <UnitSection
           key={unit.id}
           unit={unit}
           firstGlobalIndex={firstIndexes[i] ?? 0}
           currentSkillId={currentSkillId}
+          introSkillId={introSkillId}
+          onCloseIntro={closeIntro}
           onSelect={openSkill}
+          onJump={openJump}
+          previousHasArt={Boolean(UNIT_ART[path.units[i - 1]?.position ?? 0])}
+          nextUnitTitle={path.units[i + 1]?.title}
         />
       ))}
+      <UpNextCard section={Math.max(1, ...path.units.map((unit) => unit.section)) + 1} />
+      <ScrollToTopButton />
       <SkillDetailDialog selection={selection} open={open} onClose={close} />
+      <JumpDialog
+        unit={jumpUnit}
+        tone={toTone(jumpUnit?.theme, "leaf")}
+        open={jumpOpen}
+        onClose={() => setJumpOpen(false)}
+        onGoToCurrent={goToCurrentSkill}
+      />
     </div>
   );
 }

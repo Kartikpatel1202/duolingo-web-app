@@ -5,6 +5,8 @@ Each exercise type is one module that defines:
 * a **Content** model — what the learner sees (sent to the client);
 * a **Solution** model — what the server compares against (never sent to the client);
 * an **Answer** model — what the client submits, discriminated by a `type` literal;
+* a **Reveal** model — the structured correct answer, returned only *after* a check so the UI
+  can highlight it (e.g. the right option or the right pairs);
 * a checker subclass implementing validation and checking for that type only.
 
 `evaluate()` is the single entry point the lesson engine uses; it contains no type switches.
@@ -12,7 +14,7 @@ Each exercise type is one module that defines:
 
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -37,6 +39,7 @@ class CheckResult:
     is_correct: bool
     correct_answer: str  # human-readable solution, shown in the feedback sheet
     note: str | None = None  # soft feedback, e.g. an accent reminder on an accepted answer
+    reveal: ExerciseModel | None = None  # structured correct answer, attached by evaluate()
 
 
 class ExerciseDefinitionError(ValueError):
@@ -79,8 +82,10 @@ class ExerciseChecker(ABC, Generic[ContentT, SolutionT, AnswerT]):
                 expected_type=self.exercise_type,
             )
         content = self.parse_content(raw_content)
+        solution = self.parse_solution(raw_solution)
         self.validate_answer(content, answer)
-        return self.check(content, self.parse_solution(raw_solution), answer)
+        result = self.check(content, solution, answer)
+        return replace(result, reveal=self.reveal(content, solution))
 
     # --- per-type behaviour ---------------------------------------------------------------------
 
@@ -96,6 +101,10 @@ class ExerciseChecker(ABC, Generic[ContentT, SolutionT, AnswerT]):
     @abstractmethod
     def check(self, content: ContentT, solution: SolutionT, answer: AnswerT) -> CheckResult:
         """Decide correctness of a well-formed answer."""
+
+    @abstractmethod
+    def reveal(self, content: ContentT, solution: SolutionT) -> ExerciseModel:
+        """The correct answer in a structured, type-specific form (sent after checking only)."""
 
     @abstractmethod
     def sample_correct_answer(self, content: ContentT, solution: SolutionT) -> AnswerT:

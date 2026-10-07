@@ -18,7 +18,7 @@ export function IconButton({ label, icon, variant = "plain", className, type = "
       className={cn(
         "focus-ring inline-flex size-11 shrink-0 items-center justify-center rounded-tile text-muted",
         "transition-colors hover:bg-mist hover:text-ink-soft disabled:opacity-40",
-        variant === "outlined" && "tactile border-2 border-line bg-white [--tactile-edge:var(--color-line)]",
+        variant === "outlined" && "tactile border-2 border-line bg-surface [--tactile-edge:var(--color-line)]",
         className,
       )}
       {...props}

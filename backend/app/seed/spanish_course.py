@@ -1,224 +1,896 @@
-"""Seed content: Spanish for English speakers — 3 units × 3 skills × 2 lessons × 7 exercises."""
+"""Seed content: Spanish for English speakers — Section 1, Units 1–10.
 
-from app.seed.specs import CourseSpec, LessonSpec, Sentence, SkillSpec, UnitSpec, Word
+Every unit has three authored skills (two lessons each) plus a generated practice skill that
+recombines the unit's own vocabulary (see `practice_skill`), so a unit is 4 skills / 8 lessons.
+All teaching content here is original material written for this project.
+"""
 
-GREETINGS = SkillSpec(
-    title="Greetings",
-    icon="wave",
-    description="Say hello, goodbye and thank you.",
-    lessons=(
-        LessonSpec(
-            title="Hello!",
-            words=(
-                Word("hola", "hello", "👋"),
-                Word("adiós", "goodbye", "🚶"),
-                Word("gracias", "thank you", "🙏"),
-                Word("por favor", "please", "🙂"),
+from dataclasses import replace
+
+from app.seed import guidebooks
+from app.seed.specs import (
+    CourseSpec,
+    GuidebookSpec,
+    LessonSpec,
+    Sentence,
+    SkillSpec,
+    UnitSpec,
+    Word,
+)
+
+W = Word
+S = Sentence
+
+# Node icons on the path (keys the frontend maps to drawings).
+STAR, BOOK, LISTEN, PRACTICE = "star", "book", "headphones", "dumbbell"
+
+
+def lesson(
+    title: str, words: tuple[Word, Word, Word, Word], sentences: tuple[Sentence, Sentence, Sentence]
+) -> LessonSpec:
+    return LessonSpec(title=title, words=words, sentences=sentences)
+
+
+def practice_skill(title: str, skills: tuple[SkillSpec, ...]) -> SkillSpec:
+    """A review skill built from a unit's authored lessons: no new vocabulary, just a remix.
+
+    Lesson 1 takes the first words and the second sentences; lesson 2 takes the later words and
+    the third sentences. Words are de-duplicated so every option and pair stays unambiguous.
+    """
+    lessons = [item for skill in skills for item in skill.lessons]
+
+    def pick_words(start: int) -> tuple[Word, Word, Word, Word]:
+        chosen: list[Word] = []
+        for offset in range(len(lessons) * 4):
+            source = lessons[(start + offset) % len(lessons)]
+            word = source.words[(start + offset // len(lessons)) % 4]
+            if all(word.es != w.es and word.en != w.en for w in chosen):
+                chosen.append(word)
+            if len(chosen) == 4:
+                break
+        first, second, third, fourth = chosen
+        return (first, second, third, fourth)
+
+    def pick_sentences(index: int, start: int) -> tuple[Sentence, Sentence, Sentence]:
+        picked = [lessons[(start + 2 * n) % len(lessons)].sentences[index] for n in range(3)]
+        return (picked[0], picked[1], picked[2])
+
+    return SkillSpec(
+        title=title,
+        icon=PRACTICE,
+        description="Practice everything from this unit.",
+        lessons=(
+            LessonSpec("Practice 1", pick_words(0), pick_sentences(1, 0)),
+            LessonSpec("Practice 2", pick_words(2), pick_sentences(2, 1)),
+        ),
+    )
+
+
+def unit(
+    title: str,
+    description: str,
+    theme: str,
+    skills: tuple[SkillSpec, SkillSpec, SkillSpec],
+    practice_title: str,
+    guidebook: GuidebookSpec,
+    node_icons: tuple[str, str, str, str] | None = None,
+) -> UnitSpec:
+    """One unit: three authored skills plus a practice skill; `node_icons` sets the icon of
+    each of the unit's four nodes (the units drawn to a reference screenshot use its icons)."""
+    all_skills: tuple[SkillSpec, ...] = (*skills, practice_skill(practice_title, skills))
+    if node_icons is not None:
+        all_skills = tuple(
+            replace(skill, icon=icon) for skill, icon in zip(all_skills, node_icons, strict=True)
+        )
+    return UnitSpec(
+        title=title,
+        description=description,
+        theme=theme,
+        skills=all_skills,
+        guidebook=guidebook,
+        section=1,
+    )
+
+
+# --- Unit 1 — Order at a café -------------------------------------------------------------------
+
+DRINKS = SkillSpec(
+    "Drinks",
+    STAR,
+    "Ask for coffee, tea and cold drinks.",
+    (
+        lesson(
+            "Coffee and tea",
+            (
+                W("el café", "the coffee", "☕"),
+                W("el té", "the tea", "🍵"),
+                W("el agua", "the water", "💧"),
+                W("la leche", "the milk", "🥛"),
             ),
-            sentences=(
-                Sentence(
+            (
+                S(
+                    "Quiero un café, por favor.",
+                    "I want a coffee, please.",
+                    blank="Quiero",
+                    tip='"Quiero" means "I want". Add "por favor" to be polite.',
+                ),
+                S("Un té con leche.", "A tea with milk.", blank="leche"),
+                S(
+                    "Ella bebe agua.",
+                    "She drinks water.",
+                    blank="bebe",
+                    en_alt=("She is drinking water.",),
+                ),
+            ),
+        ),
+        lesson(
+            "Cold drinks",
+            (
+                W("el jugo", "the juice", "🧃"),
+                W("el hielo", "the ice", "🧊"),
+                W("el vaso", "the glass", "🥤"),
+                W("la limonada", "the lemonade", "🍋"),
+            ),
+            (
+                S("Un vaso de agua, por favor.", "A glass of water, please.", blank="vaso"),
+                S("Quiero un jugo de naranja.", "I want an orange juice.", blank="jugo"),
+                S("La limonada está fría.", "The lemonade is cold.", blank="fría"),
+            ),
+        ),
+    ),
+)
+
+SNACKS = SkillSpec(
+    "Snacks",
+    BOOK,
+    "Order something to eat.",
+    (
+        lesson(
+            "Something to eat",
+            (
+                W("el pan", "the bread", "🍞"),
+                W("el queso", "the cheese", "🧀"),
+                W("el sándwich", "the sandwich", "🥪"),
+                W("la galleta", "the cookie", "🍪"),
+            ),
+            (
+                S("Yo como pan.", "I eat bread.", blank="como", en_alt=("I am eating bread.",)),
+                S("Un sándwich de queso.", "A cheese sandwich.", blank="queso"),
+                S("La galleta es dulce.", "The cookie is sweet.", blank="dulce"),
+            ),
+        ),
+        lesson(
+            "Sweet things",
+            (
+                W("el pastel", "the cake", "🍰"),
+                W("el azúcar", "the sugar", "🍬"),
+                W("el helado", "the ice cream", "🍨"),
+                W("el chocolate", "the chocolate", "🍫"),
+            ),
+            (
+                S("Un café con azúcar.", "A coffee with sugar.", blank="azúcar"),
+                S("Me gusta el helado.", "I like ice cream.", blank="gusta"),
+                S("Quiero un pastel de chocolate.", "I want a chocolate cake.", blank="pastel"),
+            ),
+        ),
+    ),
+)
+
+ORDERING = SkillSpec(
+    "Ordering",
+    LISTEN,
+    "Be polite, count and ask for the check.",
+    (
+        lesson(
+            "Please and thank you",
+            (
+                W("por favor", "please", "🙂"),
+                W("gracias", "thank you", "🙏"),
+                W("la cuenta", "the check", "🧾"),
+                W("el mesero", "the waiter", "🤵"),
+            ),
+            (
+                S("La cuenta, por favor.", "The check, please.", blank="cuenta"),
+                S(
+                    "Muchas gracias.",
+                    "Thank you very much.",
+                    blank="gracias",
+                    en_alt=("Thanks a lot.", "Many thanks."),
+                ),
+                S("El mesero trae el café.", "The waiter brings the coffee.", blank="trae"),
+            ),
+        ),
+        lesson(
+            "How many?",
+            (
+                W("uno", "one", "1️⃣"),
+                W("dos", "two", "2️⃣"),
+                W("tres", "three", "3️⃣"),
+                W("la mesa", "the table", "🍽️"),
+            ),
+            (
+                S("Dos cafés, por favor.", "Two coffees, please.", blank="Dos"),
+                S("Una mesa para tres.", "A table for three.", blank="mesa"),
+                S("Quiero dos galletas.", "I want two cookies.", blank="galletas"),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 2 — Greet people and say goodbye ------------------------------------------------------
+
+HELLO = SkillSpec(
+    "Hello",
+    STAR,
+    "Greet people at any time of day.",
+    (
+        lesson(
+            "Hello!",
+            (
+                W("hola", "hello", "👋"),
+                W("buenos días", "good morning", "🌅"),
+                W("buenas tardes", "good afternoon", "☀️"),
+                W("buenas noches", "good night", "🌙"),
+            ),
+            (
+                S("Hola, buenos días.", "Hello, good morning.", blank="Hola"),
+                S("Buenas tardes, señora.", "Good afternoon, ma'am.", blank="tardes"),
+                S("Buenas noches, mamá.", "Good night, mom.", blank="noches"),
+            ),
+        ),
+        lesson(
+            "My name is",
+            (
+                W("el nombre", "the name", "📛"),
+                W("mucho gusto", "nice to meet you", "🤝"),
+                W("señor", "sir", "🎩"),
+                W("señora", "ma'am", "👒"),
+            ),
+            (
+                S(
                     "Hola, me llamo Ana.",
                     "Hello, my name is Ana.",
                     blank="llamo",
                     en_alt=("Hi, my name is Ana.",),
                     tip='"Me llamo" literally means "I call myself".',
                 ),
-                Sentence("Buenos días, señor.", "Good morning, sir.", blank="días"),
-                Sentence(
-                    "Muchas gracias.",
-                    "Thank you very much.",
-                    blank="gracias",
-                    en_alt=("Thanks a lot.", "Many thanks."),
-                ),
-            ),
-        ),
-        LessonSpec(
-            title="How are you?",
-            words=(
-                Word("sí", "yes", "✅"),
-                Word("no", "no", "❌"),
-                Word("buenas noches", "good night", "🌙"),
-                Word("mañana", "tomorrow", "📅"),
-            ),
-            sentences=(
-                Sentence("¿Cómo estás?", "How are you?", blank="estás"),
-                Sentence(
-                    "Estoy bien, gracias.",
-                    "I am fine, thank you.",
-                    blank="bien",
-                    en_alt=("I'm fine, thank you.", "I am well, thank you.", "I am fine, thanks."),
-                    tip='Use "estar" (estoy) for how you feel right now.',
-                ),
-                Sentence(
-                    "Hasta mañana.",
-                    "See you tomorrow.",
-                    blank="mañana",
-                    en_alt=("Until tomorrow.",),
+                S("Mucho gusto, señor.", "Nice to meet you, sir.", blank="gusto"),
+                S(
+                    "¿Cómo te llamas?",
+                    "What is your name?",
+                    blank="llamas",
+                    en_alt=("What's your name?",),
                 ),
             ),
         ),
     ),
 )
 
-PEOPLE = SkillSpec(
-    title="People",
-    icon="person",
-    description="Talk about people and family.",
-    lessons=(
-        LessonSpec(
-            title="Man and woman",
-            words=(
-                Word("el hombre", "the man", "👨"),
-                Word("la mujer", "the woman", "👩"),
-                Word("el niño", "the boy", "👦"),
-                Word("la niña", "the girl", "👧"),
+HOW_ARE_YOU = SkillSpec(
+    "How are you?",
+    BOOK,
+    "Ask how someone is and answer.",
+    (
+        lesson(
+            "How are you?",
+            (
+                W("bien", "fine", "👍"),
+                W("mal", "bad", "👎"),
+                W("cansado", "tired", "😴"),
+                W("contento", "glad", "😊"),
             ),
-            sentences=(
-                Sentence("Yo soy un hombre.", "I am a man.", blank="soy", en_alt=("I'm a man.",)),
-                Sentence(
-                    "Ella es una mujer.", "She is a woman.", blank="una", en_alt=("She's a woman.",)
+            (
+                S("¿Cómo estás?", "How are you?", blank="estás"),
+                S(
+                    "Estoy bien, gracias.",
+                    "I am fine, thank you.",
+                    blank="bien",
+                    en_alt=("I'm fine, thank you.", "I am fine, thanks."),
                 ),
-                Sentence("El niño y la niña.", "The boy and the girl.", blank="y"),
+                S(
+                    "Estoy muy cansado.",
+                    "I am very tired.",
+                    blank="cansado",
+                    en_alt=("I'm very tired.",),
+                ),
             ),
         ),
-        LessonSpec(
-            title="Family",
-            words=(
-                Word("el amigo", "the friend", "🤝"),
-                Word("la familia", "the family", "👪"),
-                Word("el padre", "the father", "👨‍👧"),
-                Word("la madre", "the mother", "👩‍👧"),
+        lesson(
+            "And you?",
+            (
+                W("sí", "yes", "✅"),
+                W("no", "no", "❌"),
+                W("perdón", "sorry", "🙇"),
+                W("de nada", "you're welcome", "🤗"),
             ),
-            sentences=(
-                Sentence(
+            (
+                S("Sí, estoy bien.", "Yes, I am fine.", blank="estoy", en_alt=("Yes, I'm fine.",)),
+                S("No, gracias.", "No, thank you.", blank="gracias", en_alt=("No, thanks.",)),
+                S("Perdón, ¿y tú?", "Sorry, and you?", blank="tú"),
+            ),
+        ),
+    ),
+)
+
+GOODBYE = SkillSpec(
+    "Goodbye",
+    LISTEN,
+    "Say goodbye and be polite.",
+    (
+        lesson(
+            "See you",
+            (
+                W("adiós", "goodbye", "🚶"),
+                W("hasta luego", "see you later", "🕒"),
+                W("mañana", "tomorrow", "📅"),
+                W("pronto", "soon", "⏩"),
+            ),
+            (
+                S("Adiós, hasta luego.", "Goodbye, see you later.", blank="luego"),
+                S("Hasta mañana.", "See you tomorrow.", blank="mañana"),
+                S("Hasta pronto, amigo.", "See you soon, friend.", blank="pronto"),
+            ),
+        ),
+        lesson(
+            "Polite words",
+            (
+                W("con permiso", "excuse me", "🙋"),
+                W("lo siento", "I'm sorry", "😔"),
+                W("bienvenido", "welcome", "🎉"),
+                W("igualmente", "likewise", "🔁"),
+            ),
+            (
+                S("Bienvenido a mi casa.", "Welcome to my house.", blank="casa"),
+                S(
+                    "Lo siento, señora.",
+                    "I am sorry, ma'am.",
+                    blank="siento",
+                    en_alt=("I'm sorry, ma'am.",),
+                ),
+                S(
+                    "Gracias, igualmente.",
+                    "Thank you, likewise.",
+                    blank="Gracias",
+                    en_alt=("Thanks, likewise.",),
+                ),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 3 — Say where you are from ------------------------------------------------------------
+
+COUNTRIES = SkillSpec(
+    "Countries",
+    STAR,
+    "Name countries and say where you are from.",
+    (
+        lesson(
+            "Countries",
+            (
+                W("España", "Spain", "💃"),
+                W("México", "Mexico", "🌮"),
+                W("Estados Unidos", "the United States", "🗽"),
+                W("el país", "the country", "🌍"),
+            ),
+            (
+                S(
+                    "Soy de España.",
+                    "I am from Spain.",
+                    blank="Soy",
+                    en_alt=("I'm from Spain.",),
+                    tip='"Soy de" + a place tells people where you are from.',
+                ),
+                S("México es un país grande.", "Mexico is a big country.", blank="país"),
+                S(
+                    "Ella es de Estados Unidos.",
+                    "She is from the United States.",
+                    blank="es",
+                    en_alt=("She's from the United States.",),
+                ),
+            ),
+        ),
+        lesson(
+            "Where are you from?",
+            (
+                W("dónde", "where", "❓"),
+                W("aquí", "here", "📍"),
+                W("lejos", "far", "🛣️"),
+                W("la ciudad", "the city", "🏙️"),
+            ),
+            (
+                S("¿De dónde eres?", "Where are you from?", blank="dónde"),
+                S("Yo vivo aquí.", "I live here.", blank="vivo"),
+                S("Mi ciudad es pequeña.", "My city is small.", blank="ciudad"),
+            ),
+        ),
+    ),
+)
+
+NATIONALITIES = SkillSpec(
+    "Nationalities",
+    BOOK,
+    "Say your nationality and where you live.",
+    (
+        lesson(
+            "Nationalities",
+            (
+                W("español", "Spanish", "🥘"),
+                W("mexicano", "Mexican", "🌵"),
+                W("americano", "American", "🦅"),
+                W("inglés", "English", "☂️"),
+            ),
+            (
+                S("Yo soy mexicano.", "I am Mexican.", blank="mexicano", en_alt=("I'm Mexican.",)),
+                S(
+                    "Ella es española.",
+                    "She is Spanish.",
+                    blank="española",
+                    en_alt=("She's Spanish.",),
+                ),
+                S("¿Eres americano?", "Are you American?", blank="Eres"),
+            ),
+        ),
+        lesson(
+            "Where I live",
+            (
+                W("la casa", "the house", "🏠"),
+                W("la calle", "the street", "🛤️"),
+                W("el barrio", "the neighborhood", "🏘️"),
+                W("el pueblo", "the town", "⛪"),
+            ),
+            (
+                S("Vivo en un pueblo.", "I live in a town.", blank="pueblo"),
+                S("Mi casa está en esta calle.", "My house is on this street.", blank="calle"),
+                S("Me gusta mi barrio.", "I like my neighborhood.", blank="gusta"),
+            ),
+        ),
+    ),
+)
+
+INTRODUCTIONS = SkillSpec(
+    "Introductions",
+    LISTEN,
+    "Tell people who you are.",
+    (
+        lesson(
+            "Who I am",
+            (
+                W("el estudiante", "the student", "🎓"),
+                W("el turista", "the tourist", "📸"),
+                W("el vecino", "the neighbor", "🏡"),
+                W("nuevo", "new", "✨"),
+            ),
+            (
+                S(
+                    "Soy estudiante.",
+                    "I am a student.",
+                    blank="estudiante",
+                    en_alt=("I'm a student.",),
+                ),
+                S(
+                    "Él es un turista.",
+                    "He is a tourist.",
+                    blank="turista",
+                    en_alt=("He's a tourist.",),
+                ),
+                S("Soy nuevo aquí.", "I am new here.", blank="nuevo", en_alt=("I'm new here.",)),
+            ),
+        ),
+        lesson(
+            "North and south",
+            (
+                W("cerca", "near", "📏"),
+                W("el norte", "the north", "⬆️"),
+                W("el sur", "the south", "⬇️"),
+                W("el mar", "the sea", "🌊"),
+            ),
+            (
+                S("Vivo cerca del mar.", "I live near the sea.", blank="cerca"),
+                S(
+                    "Soy del norte.",
+                    "I am from the north.",
+                    blank="norte",
+                    en_alt=("I'm from the north.",),
+                ),
+                S("Mi familia es del sur.", "My family is from the south.", blank="familia"),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 4 — Introduce family and friends ------------------------------------------------------
+
+FAMILY = SkillSpec(
+    "Family",
+    BOOK,
+    "Talk about parents, children and grandparents.",
+    (
+        lesson(
+            "Parents",
+            (
+                W("el padre", "the father", "👨"),
+                W("la madre", "the mother", "👩"),
+                W("el hijo", "the son", "👦"),
+                W("la hija", "the daughter", "👧"),
+            ),
+            (
+                S(
+                    "Ella es mi madre.",
+                    "She is my mother.",
+                    blank="madre",
+                    en_alt=("She's my mother.",),
+                ),
+                S("Mi padre es alto.", "My father is tall.", blank="alto"),
+                S("Tengo un hijo y una hija.", "I have a son and a daughter.", blank="Tengo"),
+            ),
+        ),
+        lesson(
+            "Brothers and sisters",
+            (
+                W("el hermano", "the brother", "🧑"),
+                W("la hermana", "the sister", "👱‍♀️"),
+                W("el abuelo", "the grandfather", "👴"),
+                W("la abuela", "the grandmother", "👵"),
+            ),
+            (
+                S("Tengo dos hermanos.", "I have two brothers.", blank="hermanos"),
+                S("Mi abuela vive aquí.", "My grandmother lives here.", blank="vive"),
+                S(
+                    "Él es mi hermano.",
+                    "He is my brother.",
+                    blank="hermano",
+                    en_alt=("He's my brother.",),
+                ),
+            ),
+        ),
+    ),
+)
+
+FRIENDS = SkillSpec(
+    "Friends",
+    STAR,
+    "Introduce friends and partners.",
+    (
+        lesson(
+            "My friends",
+            (
+                W("el amigo", "the friend", "🤝"),
+                W("el novio", "the boyfriend", "💑"),
+                W("la novia", "the girlfriend", "💕"),
+                W("el compañero", "the classmate", "🧑‍🤝‍🧑"),
+            ),
+            (
+                S(
                     "Él es mi amigo.",
                     "He is my friend.",
                     blank="amigo",
                     en_alt=("He's my friend.",),
+                    tip='"Mi" means "my" and never changes: mi amigo, mi amiga.',
                 ),
-                Sentence("Mi madre es alta.", "My mother is tall.", blank="alta"),
-                Sentence(
-                    "Tengo una familia grande.",
-                    "I have a big family.",
-                    blank="familia",
-                    es_alt=("Yo tengo una familia grande.",),
-                    en_alt=("I have a large family.",),
+                S(
+                    "Ella es mi novia.",
+                    "She is my girlfriend.",
+                    blank="novia",
+                    en_alt=("She's my girlfriend.",),
+                ),
+                S("Mi compañero es simpático.", "My classmate is nice.", blank="compañero"),
+            ),
+        ),
+        lesson(
+            "This is…",
+            (
+                W("el bebé", "the baby", "👶"),
+                W("el esposo", "the husband", "🤵"),
+                W("la esposa", "the wife", "👰"),
+                W("la gente", "the people", "👥"),
+            ),
+            (
+                S("Este es mi esposo.", "This is my husband.", blank="esposo"),
+                S(
+                    "El bebé duerme.",
+                    "The baby sleeps.",
+                    blank="duerme",
+                    en_alt=("The baby is sleeping.",),
+                ),
+                S(
+                    "Ella es mi esposa.",
+                    "She is my wife.",
+                    blank="esposa",
+                    en_alt=("She's my wife.",),
                 ),
             ),
         ),
     ),
 )
 
-FOOD = SkillSpec(
-    title="Food",
-    icon="apple",
-    description="Order food and drinks.",
-    lessons=(
-        LessonSpec(
-            title="Bread and water",
-            words=(
-                Word("la manzana", "the apple", "🍎"),
-                Word("el pan", "the bread", "🍞"),
-                Word("el agua", "the water", "💧"),
-                Word("la leche", "the milk", "🥛"),
+RELATIVES = SkillSpec(
+    "Relatives",
+    LISTEN,
+    "Describe the people around you.",
+    (
+        lesson(
+            "People",
+            (
+                W("el hombre", "the man", "🧔"),
+                W("la mujer", "the woman", "👩‍🦰"),
+                W("el niño", "the boy", "🧒"),
+                W("la niña", "the girl", "👧🏽"),
             ),
-            sentences=(
-                Sentence(
-                    "Yo como pan.",
-                    "I eat bread.",
-                    blank="como",
-                    en_alt=("I am eating bread.", "I'm eating bread."),
-                ),
-                Sentence(
-                    "Ella bebe agua.",
-                    "She drinks water.",
-                    blank="bebe",
-                    en_alt=("She is drinking water.",),
-                    tip='"Agua" is feminine, but takes "el" because it starts with a stressed "a".',
-                ),
-                Sentence("La manzana es roja.", "The apple is red.", blank="roja"),
+            (
+                S("Yo soy un hombre.", "I am a man.", blank="soy", en_alt=("I'm a man.",)),
+                S("Ella es una mujer.", "She is a woman.", blank="una", en_alt=("She's a woman.",)),
+                S("El niño y la niña.", "The boy and the girl.", blank="y"),
             ),
         ),
-        LessonSpec(
-            title="At the café",
-            words=(
-                Word("el café", "the coffee", "☕"),
-                Word("el queso", "the cheese", "🧀"),
-                Word("la sopa", "the soup", "🍲"),
-                Word("el pollo", "the chicken", "🍗"),
+        lesson(
+            "Big family",
+            (
+                W("la familia", "the family", "👪"),
+                W("el primo", "the cousin", "🙋‍♂️"),
+                W("el tío", "the uncle", "👨‍🦱"),
+                W("la tía", "the aunt", "👩‍🦱"),
             ),
-            sentences=(
-                Sentence(
-                    "Quiero un café, por favor.",
-                    "I want a coffee, please.",
-                    blank="Quiero",
-                    en_alt=("I would like a coffee, please.", "I'd like a coffee, please."),
-                ),
-                Sentence("La sopa está caliente.", "The soup is hot.", blank="caliente"),
-                Sentence(
-                    "Nosotros comemos pollo.",
-                    "We eat chicken.",
-                    blank="comemos",
-                    es_alt=("Comemos pollo.",),
-                    en_alt=("We are eating chicken.",),
-                ),
+            (
+                S("Tengo una familia grande.", "I have a big family.", blank="familia"),
+                S("Mi tío vive en México.", "My uncle lives in Mexico.", blank="tío"),
+                S("Mi primo es mi amigo.", "My cousin is my friend.", blank="primo"),
             ),
         ),
     ),
 )
 
-HOME = SkillSpec(
-    title="Home",
-    icon="house",
-    description="Describe your home.",
-    lessons=(
-        LessonSpec(
-            title="My house",
-            words=(
-                Word("la casa", "the house", "🏠"),
-                Word("la puerta", "the door", "🚪"),
-                Word("la mesa", "the table", "🍽️"),
-                Word("la cama", "the bed", "🛏️"),
+# --- Unit 5 — Describe people's personalities ---------------------------------------------------
+
+PERSONALITY = SkillSpec(
+    "Personality",
+    BOOK,
+    "Say what people are like.",
+    (
+        lesson(
+            "Nice people",
+            (
+                W("simpático", "nice", "😊"),
+                W("amable", "kind", "🤗"),
+                W("divertido", "fun", "🎉"),
+                W("serio", "serious", "😐"),
             ),
-            sentences=(
-                Sentence(
-                    "Mi casa es pequeña.",
-                    "My house is small.",
-                    blank="pequeña",
-                    en_alt=("My home is small.",),
+            (
+                S("Mi amigo es simpático.", "My friend is nice.", blank="simpático"),
+                S(
+                    "Ella es muy amable.",
+                    "She is very kind.",
+                    blank="amable",
+                    en_alt=("She's very kind.",),
                 ),
-                Sentence("La puerta está abierta.", "The door is open.", blank="abierta"),
-                Sentence(
+                S("Mi padre es serio.", "My father is serious.", blank="serio"),
+            ),
+        ),
+        lesson(
+            "More traits",
+            (
+                W("tímido", "shy", "🙈"),
+                W("inteligente", "smart", "🧠"),
+                W("trabajador", "hardworking", "💪"),
+                W("perezoso", "lazy", "🦥"),
+            ),
+            (
+                S("Mi hermano es tímido.", "My brother is shy.", blank="tímido"),
+                S(
+                    "Eres muy inteligente.",
+                    "You are very smart.",
+                    blank="inteligente",
+                    en_alt=("You're very smart.",),
+                ),
+                S("El gato es perezoso.", "The cat is lazy.", blank="perezoso"),
+            ),
+        ),
+    ),
+)
+
+LOOKS = SkillSpec(
+    "Looks",
+    STAR,
+    "Describe how people look.",
+    (
+        lesson(
+            "Tall and short",
+            (
+                W("alto", "tall", "🦒"),
+                W("bajo", "short", "🐭"),
+                W("joven", "young", "🌱"),
+                W("viejo", "old", "🧓"),
+            ),
+            (
+                S(
+                    "Mi madre es alta.",
+                    "My mother is tall.",
+                    blank="alta",
+                    tip="Adjectives match the person: alto for a man, alta for a woman.",
+                ),
+                S("El niño es bajo.", "The boy is short.", blank="bajo"),
+                S("Mi abuelo es viejo.", "My grandfather is old.", blank="viejo"),
+            ),
+        ),
+        lesson(
+            "Hair and eyes",
+            (
+                W("el pelo", "the hair", "💇"),
+                W("los ojos", "the eyes", "👀"),
+                W("rubio", "blond", "👱"),
+                W("moreno", "dark-haired", "🧑‍🦱"),
+            ),
+            (
+                S(
+                    "Tiene el pelo rubio.",
+                    "He has blond hair.",
+                    blank="pelo",
+                    en_alt=("She has blond hair.",),
+                ),
+                S("Ella tiene los ojos verdes.", "She has green eyes.", blank="ojos"),
+                S("Mi hermana es morena.", "My sister is dark-haired.", blank="hermana"),
+            ),
+        ),
+    ),
+)
+
+FEELINGS = SkillSpec(
+    "Feelings",
+    LISTEN,
+    "Say how people feel today.",
+    (
+        lesson(
+            "Happy and sad",
+            (
+                W("feliz", "happy", "😀"),
+                W("triste", "sad", "😢"),
+                W("enojado", "angry", "😠"),
+                W("nervioso", "nervous", "😬"),
+            ),
+            (
+                S(
+                    "Hoy estoy feliz.",
+                    "Today I am happy.",
+                    blank="feliz",
+                    en_alt=("I am happy today.", "Today I'm happy.", "I'm happy today."),
+                ),
+                S("¿Por qué estás triste?", "Why are you sad?", blank="triste"),
+                S("Mi jefe está enojado.", "My boss is angry.", blank="enojado"),
+            ),
+        ),
+        lesson(
+            "Right now",
+            (
+                W("tranquilo", "calm", "😌"),
+                W("ocupado", "busy", "📚"),
+                W("enfermo", "sick", "🤒"),
+                W("listo", "ready", "✅"),
+            ),
+            (
+                S(
+                    "Estoy muy ocupado.",
+                    "I am very busy.",
+                    blank="ocupado",
+                    en_alt=("I'm very busy.",),
+                ),
+                S("El bebé está tranquilo.", "The baby is calm.", blank="tranquilo"),
+                S("¿Estás listo?", "Are you ready?", blank="listo"),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 6 — Say where your things are ---------------------------------------------------------
+
+MY_THINGS = SkillSpec(
+    "My things",
+    BOOK,
+    "Name the things you carry and keep.",
+    (
+        lesson(
+            "In my bag",
+            (
+                W("el libro", "the book", "📕"),
+                W("el teléfono", "the phone", "📱"),
+                W("la llave", "the key", "🔑"),
+                W("la mochila", "the backpack", "🎒"),
+            ),
+            (
+                S(
+                    "¿Dónde está mi teléfono?",
+                    "Where is my phone?",
+                    blank="teléfono",
+                    en_alt=("Where's my phone?",),
+                ),
+                S("Tengo un libro nuevo.", "I have a new book.", blank="libro"),
+                S("La llave está aquí.", "The key is here.", blank="llave"),
+            ),
+        ),
+        lesson(
+            "Furniture",
+            (
+                W("la mesa", "the table", "🍽️"),
+                W("la silla", "the chair", "🪑"),
+                W("la cama", "the bed", "🛏️"),
+                W("la caja", "the box", "📦"),
+            ),
+            (
+                S(
                     "El gato duerme en la cama.",
                     "The cat sleeps on the bed.",
                     blank="cama",
-                    en_alt=("The cat sleeps in the bed.", "The cat is sleeping on the bed."),
+                    en_alt=("The cat is sleeping on the bed.",),
+                ),
+                S("La caja es grande.", "The box is big.", blank="caja"),
+                S("Mi mochila está en la silla.", "My backpack is on the chair.", blank="silla"),
+            ),
+        ),
+    ),
+)
+
+WHERE_IS_IT = SkillSpec(
+    "Where is it?",
+    LISTEN,
+    "Say where something is.",
+    (
+        lesson(
+            "On, under, inside",
+            (
+                W("sobre", "on", "🔝"),
+                W("debajo", "under", "⬇️"),
+                W("dentro", "inside", "📥"),
+                W("al lado", "next to", "↔️"),
+            ),
+            (
+                S(
+                    "El libro está sobre la mesa.",
+                    "The book is on the table.",
+                    blank="sobre",
+                    tip='Use "está" (not "es") to say where something is.',
+                ),
+                S("El gato está debajo de la cama.", "The cat is under the bed.", blank="debajo"),
+                S("La llave está dentro de la caja.", "The key is inside the box.", blank="dentro"),
+            ),
+        ),
+        lesson(
+            "Here and there",
+            (
+                W("aquí", "here", "📍"),
+                W("allí", "there", "👉"),
+                W("cerca", "near", "📏"),
+                W("lejos", "far", "🛣️"),
+            ),
+            (
+                S("Mi teléfono está aquí.", "My phone is here.", blank="aquí"),
+                S("La mochila está allí.", "The backpack is there.", blank="allí"),
+                S(
+                    "Mi casa está lejos.",
+                    "My house is far.",
+                    blank="lejos",
+                    en_alt=("My house is far away.",),
                 ),
             ),
         ),
-        LessonSpec(
-            title="Rooms",
-            words=(
-                Word("la cocina", "the kitchen", "🍳"),
-                Word("el baño", "the bathroom", "🛁"),
-                Word("la ventana", "the window", "🪟"),
-                Word("la silla", "the chair", "🪑"),
+    ),
+)
+
+AT_HOME = SkillSpec(
+    "At home",
+    STAR,
+    "Find your way around the house.",
+    (
+        lesson(
+            "Rooms",
+            (
+                W("la casa", "the house", "🏠"),
+                W("la puerta", "the door", "🚪"),
+                W("la cocina", "the kitchen", "🍳"),
+                W("el baño", "the bathroom", "🛁"),
             ),
-            sentences=(
-                Sentence(
-                    "La cocina es grande.",
-                    "The kitchen is big.",
-                    blank="grande",
-                    en_alt=("The kitchen is large.",),
-                ),
-                Sentence(
-                    "Abro la ventana.",
-                    "I open the window.",
-                    blank="ventana",
-                    es_alt=("Yo abro la ventana.",),
-                    en_alt=("I am opening the window.", "I'm opening the window."),
-                ),
-                Sentence(
+            (
+                S("Mi casa es pequeña.", "My house is small.", blank="pequeña"),
+                S("La puerta está abierta.", "The door is open.", blank="abierta"),
+                S(
                     "¿Dónde está el baño?",
                     "Where is the bathroom?",
                     blank="está",
@@ -226,283 +898,643 @@ HOME = SkillSpec(
                 ),
             ),
         ),
-    ),
-)
-
-ANIMALS = SkillSpec(
-    title="Animals",
-    icon="paw",
-    description="Name animals and what they do.",
-    lessons=(
-        LessonSpec(
-            title="Pets",
-            words=(
-                Word("el perro", "the dog", "🐶"),
-                Word("el gato", "the cat", "🐱"),
-                Word("el pájaro", "the bird", "🐦"),
-                Word("el caballo", "the horse", "🐴"),
+        lesson(
+            "Around the room",
+            (
+                W("la ventana", "the window", "🪟"),
+                W("la lámpara", "the lamp", "💡"),
+                W("el sofá", "the sofa", "🛋️"),
+                W("el reloj", "the clock", "🕰️"),
             ),
-            sentences=(
-                Sentence(
-                    "El perro come.", "The dog eats.", blank="perro", en_alt=("The dog is eating.",)
+            (
+                S(
+                    "Abro la ventana.",
+                    "I open the window.",
+                    blank="ventana",
+                    en_alt=("I am opening the window.",),
                 ),
-                Sentence(
-                    "Tengo un gato negro.",
-                    "I have a black cat.",
-                    blank="negro",
-                    es_alt=("Yo tengo un gato negro.",),
-                    tip="In Spanish, colours usually come after the noun.",
-                ),
-                Sentence(
-                    "El pájaro canta.",
-                    "The bird sings.",
-                    blank="canta",
-                    en_alt=("The bird is singing.",),
-                ),
-            ),
-        ),
-        LessonSpec(
-            title="On the farm",
-            words=(
-                Word("el pez", "the fish", "🐟"),
-                Word("la vaca", "the cow", "🐮"),
-                Word("el ratón", "the mouse", "🐭"),
-                Word("el oso", "the bear", "🐻"),
-            ),
-            sentences=(
-                Sentence(
-                    "La vaca bebe agua.",
-                    "The cow drinks water.",
-                    blank="vaca",
-                    en_alt=("The cow is drinking water.",),
-                ),
-                Sentence(
-                    "El oso es grande.",
-                    "The bear is big.",
-                    blank="oso",
-                    en_alt=("The bear is large.",),
-                ),
-                Sentence(
-                    "El ratón come queso.",
-                    "The mouse eats cheese.",
-                    blank="queso",
-                    en_alt=("The mouse is eating cheese.",),
-                ),
+                S("El reloj está en la cocina.", "The clock is in the kitchen.", blank="reloj"),
+                S("Mi perro duerme en el sofá.", "My dog sleeps on the sofa.", blank="sofá"),
             ),
         ),
     ),
 )
 
-COLORS = SkillSpec(
-    title="Colors",
-    icon="palette",
-    description="Describe things with colours.",
-    lessons=(
-        LessonSpec(
-            title="Primary colors",
-            words=(
-                Word("rojo", "red", "🔴"),
-                Word("azul", "blue", "🔵"),
-                Word("verde", "green", "🟢"),
-                Word("amarillo", "yellow", "🟡"),
+# --- Unit 7 — Talk about places in the city -----------------------------------------------------
+
+PLACES = SkillSpec(
+    "Places",
+    LISTEN,
+    "Name places around town.",
+    (
+        lesson(
+            "Around town",
+            (
+                W("el banco", "the bank", "🏦"),
+                W("el parque", "the park", "🌳"),
+                W("la tienda", "the store", "🏪"),
+                W("el hotel", "the hotel", "🏨"),
             ),
-            sentences=(
-                Sentence("El cielo es azul.", "The sky is blue.", blank="azul"),
-                Sentence("La casa es verde.", "The house is green.", blank="verde"),
-                Sentence(
-                    "Me gusta el rojo.",
-                    "I like red.",
-                    blank="gusta",
-                    en_alt=("I like the color red.",),
+            (
+                S("El banco está cerrado.", "The bank is closed.", blank="cerrado"),
+                S(
+                    "Vamos al parque.",
+                    "We are going to the park.",
+                    blank="parque",
+                    en_alt=("Let's go to the park.", "We're going to the park."),
+                    tip='"a" + "el" joins into "al": vamos al parque.',
                 ),
+                S("Necesito un hotel.", "I need a hotel.", blank="Necesito"),
             ),
         ),
-        LessonSpec(
-            title="More colors",
-            words=(
-                Word("blanco", "white", "⚪"),
-                Word("negro", "black", "⚫"),
-                Word("rosa", "pink", "🌸"),
-                Word("naranja", "orange", "🟠"),
+        lesson(
+            "Public places",
+            (
+                W("la escuela", "the school", "🏫"),
+                W("el hospital", "the hospital", "🏥"),
+                W("la biblioteca", "the library", "📚"),
+                W("el museo", "the museum", "🖼️"),
             ),
-            sentences=(
-                Sentence(
-                    "La leche es blanca.",
-                    "The milk is white.",
-                    blank="blanca",
-                    tip='Adjectives agree with the noun: "blanco" becomes "blanca".',
+            (
+                S(
+                    "Mi hermana está en la escuela.",
+                    "My sister is at school.",
+                    blank="escuela",
+                    en_alt=("My sister is at the school.",),
                 ),
-                Sentence("Mi coche es negro.", "My car is black.", blank="coche"),
-                Sentence("Las flores son rosas.", "The flowers are pink.", blank="flores"),
+                S("El museo abre hoy.", "The museum opens today.", blank="abre"),
+                S("La biblioteca es grande.", "The library is big.", blank="biblioteca"),
             ),
         ),
     ),
 )
 
-TRAVEL = SkillSpec(
-    title="Travel",
-    icon="plane",
-    description="Get around on holiday.",
-    lessons=(
-        LessonSpec(
-            title="Getting there",
-            words=(
-                Word("el tren", "the train", "🚆"),
-                Word("el avión", "the plane", "✈️"),
-                Word("el hotel", "the hotel", "🏨"),
-                Word("la playa", "the beach", "🏖️"),
+GETTING_AROUND = SkillSpec(
+    "Getting around",
+    STAR,
+    "Use trains, buses and streets.",
+    (
+        lesson(
+            "Transport",
+            (
+                W("el tren", "the train", "🚆"),
+                W("el autobús", "the bus", "🚌"),
+                W("el taxi", "the taxi", "🚕"),
+                W("la estación", "the station", "🚉"),
             ),
-            sentences=(
-                Sentence(
-                    "Vamos a la playa.",
-                    "We are going to the beach.",
-                    blank="playa",
-                    en_alt=("We're going to the beach.", "Let's go to the beach."),
+            (
+                S("El tren llega tarde.", "The train arrives late.", blank="tarde"),
+                S(
+                    "Tomo el autobús.",
+                    "I take the bus.",
+                    blank="autobús",
+                    en_alt=("I am taking the bus.",),
                 ),
-                Sentence(
-                    "El tren llega tarde.",
-                    "The train arrives late.",
-                    blank="tarde",
-                    en_alt=("The train is late.",),
-                ),
-                Sentence(
-                    "Necesito un hotel.",
-                    "I need a hotel.",
-                    blank="Necesito",
-                    es_alt=("Yo necesito un hotel.",),
-                ),
+                S("¿Dónde está la estación?", "Where is the station?", blank="estación"),
             ),
         ),
-        LessonSpec(
-            title="Packing",
-            words=(
-                Word("el pasaporte", "the passport", "🛂"),
-                Word("la maleta", "the suitcase", "🧳"),
-                Word("el billete", "the ticket", "🎫"),
-                Word("el mapa", "the map", "🗺️"),
+        lesson(
+            "Streets",
+            (
+                W("la calle", "the street", "🛤️"),
+                W("la plaza", "the square", "⛲"),
+                W("el puente", "the bridge", "🌉"),
+                W("el centro", "downtown", "🏙️"),
             ),
-            sentences=(
-                Sentence(
-                    "¿Dónde está mi pasaporte?",
-                    "Where is my passport?",
-                    blank="pasaporte",
-                    en_alt=("Where's my passport?",),
+            (
+                S("Vivo en el centro.", "I live downtown.", blank="centro"),
+                S(
+                    "La plaza está cerca.",
+                    "The square is near.",
+                    blank="plaza",
+                    en_alt=("The square is nearby.",),
                 ),
-                Sentence("Mi maleta es pesada.", "My suitcase is heavy.", blank="pesada"),
-                Sentence(
-                    "Un billete, por favor.",
-                    "One ticket, please.",
-                    blank="billete",
-                    en_alt=("A ticket, please.",),
+                S(
+                    "Cruzo el puente.",
+                    "I cross the bridge.",
+                    blank="puente",
+                    en_alt=("I am crossing the bridge.",),
                 ),
             ),
         ),
     ),
 )
 
-TIME = SkillSpec(
-    title="Time",
-    icon="clock",
-    description="Days, dates and telling the time.",
-    lessons=(
-        LessonSpec(
-            title="Days",
-            words=(
-                Word("lunes", "Monday", "1️⃣"),
-                Word("martes", "Tuesday", "2️⃣"),
-                Word("hoy", "today", "📍"),
-                Word("ayer", "yesterday", "⏪"),
+DIRECTIONS = SkillSpec(
+    "Directions",
+    BOOK,
+    "Ask for and follow directions.",
+    (
+        lesson(
+            "Left and right",
+            (
+                W("izquierda", "left", "⬅️"),
+                W("derecha", "right", "➡️"),
+                W("recto", "straight", "⬆️"),
+                W("la esquina", "the corner", "📐"),
             ),
-            sentences=(
-                Sentence("Hoy es lunes.", "Today is Monday.", blank="lunes"),
-                Sentence("Ayer fue martes.", "Yesterday was Tuesday.", blank="fue"),
-                Sentence(
-                    "Mañana es sábado.",
-                    "Tomorrow is Saturday.",
-                    blank="sábado",
-                    tip="Days of the week are not capitalised in Spanish.",
+            (
+                S(
+                    "Gira a la izquierda.",
+                    "Turn left.",
+                    blank="izquierda",
+                    en_alt=("Turn to the left.",),
+                ),
+                S("El banco está a la derecha.", "The bank is on the right.", blank="derecha"),
+                S(
+                    "Sigue todo recto.",
+                    "Go straight ahead.",
+                    blank="recto",
+                    en_alt=("Keep going straight.",),
                 ),
             ),
         ),
-        LessonSpec(
-            title="What time is it?",
-            words=(
-                Word("el día", "the day", "☀️"),
-                Word("la semana", "the week", "🗓️"),
-                Word("el mes", "the month", "📆"),
-                Word("el año", "the year", "🎆"),
+        lesson(
+            "Finding places",
+            (
+                W("el mapa", "the map", "🗺️"),
+                W("el restaurante", "the restaurant", "🍴"),
+                W("el cine", "the movie theater", "🎬"),
+                W("el mercado", "the market", "🧺"),
             ),
-            sentences=(
-                Sentence("¿Qué hora es?", "What time is it?", blank="hora"),
-                Sentence(
-                    "Son las tres.",
-                    "It is three o'clock.",
-                    blank="tres",
-                    en_alt=("It's three o'clock.", "It is three."),
+            (
+                S(
+                    "¿Dónde está el mercado?",
+                    "Where is the market?",
+                    blank="mercado",
+                    en_alt=("Where's the market?",),
                 ),
-                Sentence(
-                    "Trabajo todos los días.",
-                    "I work every day.",
-                    blank="días",
-                    es_alt=("Yo trabajo todos los días.",),
+                S("Tengo un mapa.", "I have a map.", blank="mapa"),
+                S("El cine está en la plaza.", "The movie theater is in the square.", blank="cine"),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 8 — Discuss languages -----------------------------------------------------------------
+
+LANGUAGES = SkillSpec(
+    "Languages",
+    BOOK,
+    "Say which languages you speak.",
+    (
+        lesson(
+            "I speak",
+            (
+                W("el español", "Spanish", "🥘"),
+                W("el inglés", "English", "☂️"),
+                W("el francés", "French", "🥐"),
+                W("el idioma", "the language", "🗣️"),
+            ),
+            (
+                S(
+                    "Hablo español.",
+                    "I speak Spanish.",
+                    blank="Hablo",
+                    tip='The verb ending tells you who: "hablo" already means "I speak".',
+                ),
+                S("¿Hablas inglés?", "Do you speak English?", blank="inglés"),
+                S(
+                    "El francés es un idioma bonito.",
+                    "French is a beautiful language.",
+                    blank="idioma",
+                ),
+            ),
+        ),
+        lesson(
+            "Learning",
+            (
+                W("hablar", "to speak", "💬"),
+                W("estudiar", "to study", "📖"),
+                W("aprender", "to learn", "🧠"),
+                W("entender", "to understand", "💡"),
+            ),
+            (
+                S("Estudio español todos los días.", "I study Spanish every day.", blank="Estudio"),
+                S("Quiero aprender francés.", "I want to learn French.", blank="aprender"),
+                S(
+                    "No entiendo.",
+                    "I do not understand.",
+                    blank="entiendo",
+                    en_alt=("I don't understand.",),
                 ),
             ),
         ),
     ),
 )
 
-SHOPPING = SkillSpec(
-    title="Shopping",
-    icon="bag",
-    description="Buy things and talk about prices.",
-    lessons=(
-        LessonSpec(
-            title="At the store",
-            words=(
-                Word("la tienda", "the store", "🏪"),
-                Word("el dinero", "the money", "💰"),
-                Word("la camisa", "the shirt", "👕"),
-                Word("los zapatos", "the shoes", "👟"),
+IN_CLASS = SkillSpec(
+    "In class",
+    STAR,
+    "Talk about words, questions and homework.",
+    (
+        lesson(
+            "Words and questions",
+            (
+                W("la palabra", "the word", "🔤"),
+                W("la frase", "the sentence", "📝"),
+                W("la pregunta", "the question", "❓"),
+                W("la respuesta", "the answer", "✔️"),
             ),
-            sentences=(
-                Sentence(
+            (
+                S("Tengo una pregunta.", "I have a question.", blank="pregunta"),
+                S("¿Qué significa esta palabra?", "What does this word mean?", blank="palabra"),
+                S("La respuesta es correcta.", "The answer is correct.", blank="respuesta"),
+            ),
+        ),
+        lesson(
+            "The classroom",
+            (
+                W("el profesor", "the teacher", "👨‍🏫"),
+                W("la clase", "the class", "🏫"),
+                W("el examen", "the exam", "📄"),
+                W("la tarea", "the homework", "📚"),
+            ),
+            (
+                S("Mi profesor habla inglés.", "My teacher speaks English.", blank="habla"),
+                S("La clase es divertida.", "The class is fun.", blank="clase"),
+                S("Tengo mucha tarea.", "I have a lot of homework.", blank="tarea"),
+            ),
+        ),
+    ),
+)
+
+HOW_WELL = SkillSpec(
+    "How well?",
+    LISTEN,
+    "Say how well and how fast you speak.",
+    (
+        lesson(
+            "A little, a lot",
+            (
+                W("un poco", "a little", "🤏"),
+                W("mucho", "a lot", "💯"),
+                W("despacio", "slowly", "🐢"),
+                W("rápido", "fast", "🐇"),
+            ),
+            (
+                S(
+                    "Hablo un poco de español.",
+                    "I speak a little Spanish.",
+                    blank="poco",
+                    en_alt=("I speak a bit of Spanish.", "I speak a little bit of Spanish."),
+                ),
+                S(
+                    "Más despacio, por favor.",
+                    "More slowly, please.",
+                    blank="despacio",
+                    en_alt=("Slower, please.",),
+                ),
+                S("Ella habla muy rápido.", "She speaks very fast.", blank="rápido"),
+            ),
+        ),
+        lesson(
+            "Easy or hard",
+            (
+                W("fácil", "easy", "👌"),
+                W("difícil", "difficult", "🧗"),
+                W("bonito", "beautiful", "🌸"),
+                W("importante", "important", "⭐"),
+            ),
+            (
+                S("El español es fácil.", "Spanish is easy.", blank="fácil"),
+                S(
+                    "El examen es difícil.",
+                    "The exam is difficult.",
+                    blank="difícil",
+                    en_alt=("The exam is hard.",),
+                ),
+                S(
+                    "Es un idioma importante.",
+                    "It is an important language.",
+                    blank="importante",
+                    en_alt=("It's an important language.",),
+                ),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 9 — Talk about the weather ------------------------------------------------------------
+
+WEATHER = SkillSpec(
+    "Weather",
+    BOOK,
+    "Say what the weather is like.",
+    (
+        lesson(
+            "Sun and rain",
+            (
+                W("el sol", "the sun", "☀️"),
+                W("la lluvia", "the rain", "🌧️"),
+                W("el viento", "the wind", "💨"),
+                W("la nieve", "the snow", "❄️"),
+            ),
+            (
+                S(
+                    "Hace sol.",
+                    "It is sunny.",
+                    blank="sol",
+                    en_alt=("It's sunny.",),
+                    tip='Spanish uses "hace" (it makes) for weather: hace sol, hace frío.',
+                ),
+                S(
+                    "Me gusta la lluvia.",
+                    "I like the rain.",
+                    blank="lluvia",
+                    en_alt=("I like rain.",),
+                ),
+                S(
+                    "Hay mucho viento.",
+                    "It is very windy.",
+                    blank="viento",
+                    en_alt=("It's very windy.", "There is a lot of wind."),
+                ),
+            ),
+        ),
+        lesson(
+            "Hot and cold",
+            (
+                W("el calor", "the heat", "🥵"),
+                W("el frío", "the cold", "🥶"),
+                W("la nube", "the cloud", "☁️"),
+                W("el cielo", "the sky", "🌌"),
+            ),
+            (
+                S(
+                    "Hace mucho calor.",
+                    "It is very hot.",
+                    blank="calor",
+                    en_alt=("It's very hot.",),
+                ),
+                S(
+                    "Hoy hace frío.",
+                    "It is cold today.",
+                    blank="frío",
+                    en_alt=("Today it is cold.", "It's cold today.", "Today it's cold."),
+                ),
+                S("El cielo es azul.", "The sky is blue.", blank="azul"),
+            ),
+        ),
+    ),
+)
+
+SEASONS = SkillSpec(
+    "Seasons",
+    LISTEN,
+    "Talk about the seasons and when things happen.",
+    (
+        lesson(
+            "The four seasons",
+            (
+                W("el verano", "the summer", "🏖️"),
+                W("el invierno", "the winter", "⛄"),
+                W("la primavera", "the spring", "🌷"),
+                W("el otoño", "the fall", "🍂"),
+            ),
+            (
+                S(
+                    "En verano hace calor.",
+                    "In summer it is hot.",
+                    blank="verano",
+                    en_alt=(
+                        "It is hot in summer.",
+                        "In the summer it is hot.",
+                        "It's hot in summer.",
+                    ),
+                ),
+                S(
+                    "Me gusta la primavera.",
+                    "I like spring.",
+                    blank="primavera",
+                    en_alt=("I like the spring.",),
+                ),
+                S(
+                    "En invierno nieva.",
+                    "In winter it snows.",
+                    blank="invierno",
+                    en_alt=("It snows in winter.", "In the winter it snows."),
+                ),
+            ),
+        ),
+        lesson(
+            "Today and tomorrow",
+            (
+                W("hoy", "today", "📍"),
+                W("mañana", "tomorrow", "📅"),
+                W("siempre", "always", "♾️"),
+                W("nunca", "never", "🚫"),
+            ),
+            (
+                S(
+                    "Hoy llueve.",
+                    "Today it is raining.",
+                    blank="llueve",
+                    en_alt=("It is raining today.", "It's raining today.", "Today it rains."),
+                ),
+                S(
+                    "Mañana hace sol.",
+                    "Tomorrow it is sunny.",
+                    blank="Mañana",
+                    en_alt=(
+                        "It is sunny tomorrow.",
+                        "Tomorrow it's sunny.",
+                        "Tomorrow will be sunny.",
+                    ),
+                ),
+                S(
+                    "Aquí nunca nieva.",
+                    "It never snows here.",
+                    blank="nunca",
+                    en_alt=("Here it never snows.",),
+                ),
+            ),
+        ),
+    ),
+)
+
+WHAT_TO_WEAR = SkillSpec(
+    "What to wear",
+    STAR,
+    "Dress for the weather.",
+    (
+        lesson(
+            "Rainy days",
+            (
+                W("el abrigo", "the coat", "🧥"),
+                W("el paraguas", "the umbrella", "☂️"),
+                W("el sombrero", "the hat", "👒"),
+                W("las botas", "the boots", "🥾"),
+            ),
+            (
+                S("Necesito un paraguas.", "I need an umbrella.", blank="paraguas"),
+                S(
+                    "Llevo un abrigo.",
+                    "I am wearing a coat.",
+                    blank="abrigo",
+                    en_alt=("I wear a coat.", "I'm wearing a coat."),
+                ),
+                S("Mis botas son nuevas.", "My boots are new.", blank="botas"),
+            ),
+        ),
+        lesson(
+            "How it feels",
+            (
+                W("caliente", "hot", "🔥"),
+                W("fresco", "cool", "🍃"),
+                W("húmedo", "humid", "💦"),
+                W("seco", "dry", "🏜️"),
+            ),
+            (
+                S("El café está caliente.", "The coffee is hot.", blank="caliente"),
+                S("La noche está fresca.", "The night is cool.", blank="noche"),
+                S(
+                    "El clima es seco.",
+                    "The weather is dry.",
+                    blank="seco",
+                    en_alt=("The climate is dry.",),
+                ),
+            ),
+        ),
+    ),
+)
+
+# --- Unit 10 — Shop for fruits at the market ----------------------------------------------------
+
+FRUITS = SkillSpec(
+    "Fruits",
+    BOOK,
+    "Name the fruit on the stall.",
+    (
+        lesson(
+            "Apples and oranges",
+            (
+                W("la manzana", "the apple", "🍎"),
+                W("la naranja", "the orange", "🍊"),
+                W("el plátano", "the banana", "🍌"),
+                W("la uva", "the grape", "🍇"),
+            ),
+            (
+                S("La manzana es roja.", "The apple is red.", blank="roja"),
+                S("Quiero una naranja.", "I want an orange.", blank="naranja"),
+                S(
+                    "Como un plátano.",
+                    "I eat a banana.",
+                    blank="plátano",
+                    en_alt=("I am eating a banana.",),
+                ),
+            ),
+        ),
+        lesson(
+            "More fruit",
+            (
+                W("la fresa", "the strawberry", "🍓"),
+                W("el limón", "the lemon", "🍋"),
+                W("la pera", "the pear", "🍐"),
+                W("la sandía", "the watermelon", "🍉"),
+            ),
+            (
+                S(
+                    "Las fresas son dulces.",
+                    "The strawberries are sweet.",
+                    blank="dulces",
+                    en_alt=("Strawberries are sweet.",),
+                ),
+                S("El limón es amarillo.", "The lemon is yellow.", blank="amarillo"),
+                S("La sandía es grande.", "The watermelon is big.", blank="sandía"),
+            ),
+        ),
+    ),
+)
+
+AT_THE_MARKET = SkillSpec(
+    "At the market",
+    STAR,
+    "Ask prices and choose the best fruit.",
+    (
+        lesson(
+            "How much?",
+            (
+                W("el mercado", "the market", "🧺"),
+                W("el dinero", "the money", "💰"),
+                W("la bolsa", "the bag", "🛍️"),
+                W("el kilo", "the kilo", "⚖️"),
+            ),
+            (
+                S(
                     "¿Cuánto cuesta?",
                     "How much does it cost?",
                     blank="cuesta",
                     en_alt=("How much is it?",),
+                    tip='"¿Cuánto cuesta?" is for one thing; for several say "¿Cuánto cuestan?".',
                 ),
-                Sentence(
-                    "La tienda está cerrada.",
-                    "The store is closed.",
-                    blank="cerrada",
-                    en_alt=("The shop is closed.",),
+                S(
+                    "Un kilo de manzanas, por favor.",
+                    "A kilo of apples, please.",
+                    blank="kilo",
+                    en_alt=("One kilo of apples, please.",),
                 ),
-                Sentence(
-                    "Quiero comprar zapatos.",
-                    "I want to buy shoes.",
-                    blank="comprar",
-                    es_alt=("Yo quiero comprar zapatos.",),
-                ),
+                S("Necesito una bolsa.", "I need a bag.", blank="bolsa"),
             ),
         ),
-        LessonSpec(
-            title="Prices",
-            words=(
-                Word("barato", "cheap", "🏷️"),
-                Word("caro", "expensive", "💎"),
-                Word("grande", "big", "🐘"),
-                Word("pequeño", "small", "🐭"),
+        lesson(
+            "Cheap and fresh",
+            (
+                W("barato", "cheap", "🏷️"),
+                W("caro", "expensive", "💎"),
+                W("fresco", "fresh", "🌿"),
+                W("maduro", "ripe", "🥭"),
             ),
-            sentences=(
-                Sentence("Esta camisa es barata.", "This shirt is cheap.", blank="barata"),
-                Sentence("Los zapatos son caros.", "The shoes are expensive.", blank="caros"),
-                Sentence(
+            (
+                S(
+                    "Las uvas son baratas.",
+                    "The grapes are cheap.",
+                    blank="baratas",
+                    en_alt=("Grapes are cheap.",),
+                ),
+                S("Este plátano está maduro.", "This banana is ripe.", blank="maduro"),
+                S("La fruta es fresca.", "The fruit is fresh.", blank="fruta"),
+            ),
+        ),
+    ),
+)
+
+BUYING = SkillSpec(
+    "Buying",
+    LISTEN,
+    "Buy, pay and ask for more.",
+    (
+        lesson(
+            "Buy and pay",
+            (
+                W("comprar", "to buy", "🛒"),
+                W("pagar", "to pay", "💳"),
+                W("vender", "to sell", "🏪"),
+                W("querer", "to want", "🙋"),
+            ),
+            (
+                S("Quiero comprar fresas.", "I want to buy strawberries.", blank="comprar"),
+                S(
                     "Pago con tarjeta.",
                     "I pay by card.",
                     blank="tarjeta",
-                    es_alt=("Yo pago con tarjeta.",),
-                    en_alt=("I pay with a card.", "I am paying by card."),
+                    en_alt=("I pay with a card.", "I am paying by card.", "I pay with card."),
                 ),
+                S("Ella vende fruta.", "She sells fruit.", blank="vende"),
+            ),
+        ),
+        lesson(
+            "More or less",
+            (
+                W("más", "more", "➕"),
+                W("menos", "less", "➖"),
+                W("otro", "another", "🔁"),
+                W("todo", "everything", "🧺"),
+            ),
+            (
+                S("Quiero más uvas.", "I want more grapes.", blank="más"),
+                S("Otra manzana, por favor.", "Another apple, please.", blank="manzana"),
+                S("¿Es todo?", "Is that everything?", blank="todo", en_alt=("Is that all?",)),
             ),
         ),
     ),
@@ -513,22 +1545,97 @@ SPANISH_COURSE = CourseSpec(
     title="Spanish",
     learning_language="es",
     from_language="en",
-    description="Learn Spanish from English: greetings, food, home, travel and more.",
+    description="Learn Spanish from English: order, greet, describe, find your way and shop.",
     units=(
-        UnitSpec(
-            "Unit 1",
-            "Greet people, introduce yourself and order food",
-            "leaf",
-            (GREETINGS, PEOPLE, FOOD),
+        unit(
+            "Order at a café",
+            "Ask for drinks and snacks, count, and pay the check.",
+            "lime",
+            (DRINKS, SNACKS, ORDERING),
+            "Café practice",
+            guidebooks.UNIT_1,
+            node_icons=(STAR, STAR, STAR, STAR),
         ),
-        UnitSpec(
-            "Unit 2",
-            "Talk about your home, pets and favourite colours",
+        unit(
+            "Greet people and say goodbye",
+            "Say hello at any time of day, ask how people are, and say goodbye.",
+            "purple",
+            (HELLO, HOW_ARE_YOU, GOODBYE),
+            "Greetings practice",
+            guidebooks.UNIT_2,
+            node_icons=(STAR, STAR, LISTEN, STAR),
+        ),
+        unit(
+            "Say where you are from",
+            "Name countries and nationalities and say where you live.",
+            "teal",
+            (COUNTRIES, NATIONALITIES, INTRODUCTIONS),
+            "Origins practice",
+            guidebooks.UNIT_3,
+            node_icons=(STAR, LISTEN, LISTEN, STAR),
+        ),
+        unit(
+            "Introduce family and friends",
+            "Talk about your family, friends and the people around you.",
+            "lime",
+            (FAMILY, FRIENDS, RELATIVES),
+            "Family practice",
+            guidebooks.UNIT_4,
+            node_icons=(BOOK, STAR, LISTEN, PRACTICE),
+        ),
+        unit(
+            "Describe people's personalities",
+            "Say what people are like, how they look and how they feel.",
             "sky",
-            (HOME, ANIMALS, COLORS),
+            (PERSONALITY, LOOKS, FEELINGS),
+            "People practice",
+            guidebooks.UNIT_5,
+            node_icons=(BOOK, STAR, PRACTICE, LISTEN),
         ),
-        UnitSpec(
-            "Unit 3", "Travel, tell the time and go shopping", "grape", (TRAVEL, TIME, SHOPPING)
+        unit(
+            "Say where your things are",
+            "Name your things and say where they are at home.",
+            "pink",
+            (MY_THINGS, WHERE_IS_IT, AT_HOME),
+            "Things practice",
+            guidebooks.UNIT_6,
+            node_icons=(BOOK, LISTEN, STAR, PRACTICE),
+        ),
+        unit(
+            "Talk about places in the city",
+            "Name places in town, get around and follow directions.",
+            "lime",
+            (PLACES, GETTING_AROUND, DIRECTIONS),
+            "City practice",
+            guidebooks.UNIT_7,
+            node_icons=(LISTEN, STAR, LISTEN, PRACTICE),
+        ),
+        unit(
+            "Discuss languages",
+            "Say which languages you speak and talk about learning them.",
+            "ember",
+            (LANGUAGES, IN_CLASS, HOW_WELL),
+            "Languages practice",
+            guidebooks.UNIT_8,
+            node_icons=(BOOK, STAR, LISTEN, PRACTICE),
+        ),
+        unit(
+            "Talk about the weather",
+            "Describe the weather and the seasons, and dress for them.",
+            "cherry",
+            (WEATHER, SEASONS, WHAT_TO_WEAR),
+            "Weather practice",
+            guidebooks.UNIT_9,
+            node_icons=(BOOK, LISTEN, STAR, PRACTICE),
+        ),
+        unit(
+            "Shop for fruits at the market",
+            "Name fruit, ask prices and buy what you need.",
+            "lime",
+            (FRUITS, AT_THE_MARKET, BUYING),
+            "Market practice",
+            guidebooks.UNIT_10,
+            node_icons=(BOOK, STAR, LISTEN, PRACTICE),
         ),
     ),
 )

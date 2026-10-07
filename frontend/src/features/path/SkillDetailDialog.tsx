@@ -1,17 +1,16 @@
 "use client";
 
-import { Lock, Zap } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Crown, Lock, Zap } from "lucide-react";
 
 import { LookupIcon } from "@/components/icons/LookupIcon";
 import { Badge, Button, ProgressBar, ResponsiveDialog, Skeleton, type Tone } from "@/components/ui";
-import { useSkill } from "@/hooks/api/useCourse";
 import { cn } from "@/lib/cn";
 import { pluralize } from "@/lib/format";
-import type { PathSkill, SkillLesson } from "@/types/api";
+import type { PathSkill } from "@/types/api";
 
 import { LessonDots } from "./LessonDots";
 import { NODE_FILL, STATUS_LABEL, STATUS_TONE, nodeTone, skillIcon } from "./skillPresentation";
+import { useSkillActions } from "./useSkillActions";
 
 export interface SelectedSkill {
   skill: PathSkill;
@@ -42,17 +41,9 @@ export function SkillDetailDialog({ selection, open, onClose }: SkillDetailDialo
 
 function SkillDetail({ selection }: { selection: SelectedSkill }) {
   const { skill, unitTone, previousSkillTitle } = selection;
-  const router = useRouter();
-  const detail = useSkill(skill.id);
-  const tone = nodeTone(skill.status, unitTone);
+  const { detail, nextLesson, startLesson, legendaryLesson, startLegendary } = useSkillActions(skill);
+  const tone = nodeTone(skill.status, unitTone, skill.legendary);
   const locked = skill.status === "locked";
-  const nextLesson: SkillLesson | undefined = detail.data?.lessons.find(
-    (lesson) => lesson.id === skill.next_lesson_id,
-  );
-
-  function startLesson() {
-    if (skill.next_lesson_id != null) router.push(`/lesson/${skill.next_lesson_id}`);
-  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -88,8 +79,8 @@ function SkillDetail({ selection }: { selection: SelectedSkill }) {
       </div>
 
       <div className="min-h-12">
-        {detail.data ? (
-          <LessonDots lessons={detail.data.lessons} tone={unitTone} nextLessonId={skill.next_lesson_id} />
+        {detail ? (
+          <LessonDots lessons={detail.lessons} tone={unitTone} nextLessonId={skill.next_lesson_id} />
         ) : (
           <div className="flex gap-2" aria-hidden>
             {Array.from({ length: skill.total_lessons }, (_, i) => (
@@ -129,6 +120,22 @@ function SkillDetail({ selection }: { selection: SelectedSkill }) {
           >
             {skill.status === "completed" ? "Practice again" : "Start lesson"}
           </Button>
+          {legendaryLesson && (
+            <Button
+              size="lg"
+              fullWidth
+              icon={<Crown className="size-5" fill="currentColor" />}
+              onClick={startLegendary}
+              className="bg-grape-500 [--tactile-edge:var(--color-grape-600)]"
+            >
+              Legendary
+            </Button>
+          )}
+          {skill.legendary && (
+            <p className="flex items-center justify-center gap-1.5 font-extrabold text-grape-600">
+              <Crown className="size-5" fill="currentColor" aria-hidden /> Legendary skill
+            </p>
+          )}
         </div>
       )}
     </div>

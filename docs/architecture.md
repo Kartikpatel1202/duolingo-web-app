@@ -1,8 +1,7 @@
 # Architecture — "Lingo" (Duolingo-inspired language-learning app)
 
-> Status: **Phase 2 — backend + frontend foundation implemented.** The lesson player (Phase 3) is not
-> built yet. §14 and §15 list where implementation refined the Phase 0 design. When an implementation decision deviates from this
-> document, update the document in the same change.
+> Status: **Phase 3 — full lesson loop implemented** (backend + frontend). §14–§16 list where
+> implementation refined the Phase 0 design; §16 documents the lesson engine.
 
 Contents
 
@@ -21,6 +20,7 @@ Contents
 13. [Known risks before Phase 1](#13-known-risks-before-phase-1)
 14. [Phase 1 implementation notes](#14-phase-1-implementation-notes)
 15. [Phase 2 implementation notes](#15-phase-2-implementation-notes)
+16. [Phase 3 — lesson engine](#16-phase-3--lesson-engine)
 
 ---
 
@@ -61,11 +61,14 @@ SQLite (WAL, foreign_keys=ON)
 | 7 | The database is the source of truth for all persistent learner state. | The client never decides XP, hearts or unlocks; it displays what the server returns. |
 | 8 | Time comes from an injected `Clock`. | Streak/daily/weekly/regeneration logic is deterministic in tests. |
 
-### Authentication assumption
+### Authentication
 
-There is no login. A FastAPI dependency `get_current_user()` resolves the **default learner** (seeded
-username from `DEFAULT_USERNAME`). Every route that needs a user depends on it, so swapping in real
-auth later (session cookie / JWT) changes exactly one function.
+A learner signs in with email and password; the API issues a signed session token, and the
+FastAPI dependency `get_current_user()` resolves the learner from it on every request (401
+otherwise). Every route that needs a learner depends on that one function, which is why adding
+authentication changed a single dependency rather than every router. Accounts are created by
+sign-up and used by login — one system, one `users` table. OAuth, email verification and password
+reset are out of scope (the assessment allows simplified authentication). Details in §21.
 
 ---
 
@@ -236,7 +239,7 @@ backend/
 │   │   └── content_, user_, attempt_, progress_, xp_, achievement_repository.py
 │   └── seed/
 │       ├── specs.py                 # authoring format (words + sentences per lesson)
-│       ├── spanish_course.py        # the course content (3 units × 3 skills × 2 lessons)
+│       ├── spanish_course.py        # the course content (Section 1: 10 units, see §22)
 │       ├── builder.py               # lesson spec → 7 exercises covering all 5 types
 │       ├── people.py                # learner, rivals (weekly pace), achievement catalog
 │       ├── seeder.py                # idempotent upserts, rival week, demo progress
@@ -611,6 +614,14 @@ Constraints: **UNIQUE(user_id, achievement_id)** → earned once, never revoked.
 | Gems | `users.gems` | balance |
 | Streak | `users.current_streak/longest/last_activity_date` | `displayed_streak()` at read |
 | Achievements | `user_achievements` | evaluated after completion |
+| Guidebook | `guidebooks` → `guidebook_sections` → `guidebook_entries` | content, ordered by `position` |
+| Streak freezes owned | `users.streak_freezes` (CHECK 0–2) | consumed lazily at the next completion |
+| Days a freeze covered | `streak_freeze_uses` | UNIQUE(user, day) |
+| Quest progress | — | computed from today's completions and `xp_events` |
+| Quest / chest claimed | `reward_claims` | UNIQUE(user, reward_key) |
+| Chest available | — | every skill in the unit completed ∧ no claim row |
+| Shop purchases | `shop_purchases` | UNIQUE(user, purchase_id); the ledger of gem spending |
+| League zone, top finishes | — | computed from rank / past weeks of `xp_events` |
 | Rank | — | `ORDER BY xp DESC, updated_at ASC, user_id ASC` |
 
 ---
@@ -669,7 +680,7 @@ Common errors on every endpoint: `422 VALIDATION_ERROR`, `500 INTERNAL_ERROR`.
   "current_course_id": 1, "total_xp": 230, "gems": 480,
   "hearts": { "...": "HeartsOut" }, "streak": { "...": "StreakOut" }, "daily": { "...": "DailyGoalOut" } }
 ```
-Errors: 404 `USER_NOT_FOUND` (default learner not seeded — tells the developer to run the seed).
+Errors: 401 `NOT_AUTHENTICATED` (no valid session; see §21).
 
 #### `PATCH /api/users/me` *(supporting)*
 Request `{ "daily_goal_xp": 30 }` (Literal[10,20,30,50]). 200 → same as `GET /users/me`.
@@ -1377,7 +1388,7 @@ py -3.11 -m venv .venv
 .venv\Scripts\pip install -r requirements-dev.txt
 .venv\Scripts\python -m app.seed --reset        # create + seed data/app.db (with demo progress)
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
-.venv\Scripts\python -m pytest                  # 189 tests
+.venv\Scripts\python -m pytest                  # 199 tests
 .venv\Scripts\ruff check app tests ; .venv\Scripts\mypy
 ```
 
@@ -1485,3 +1496,821 @@ and compares the UI against live API responses (no hard-coded stats). Projects: 
 | Labels under nodes | Labels beside nodes | Avoids collisions with START bubble |
 | Settings not planned | Settings page with real daily-goal update (`PATCH /api/users/me`) | Uses an existing endpoint; demonstrates mutations + toasts |
 | Lesson page in Phase 3 | Placeholder that loads the real lesson (locked → backend 403 shown) | Start Lesson has a real destination without faking a lesson |
+
+---
+
+## 16. Phase 3 — lesson engine
+
+The core loop — path → start/resume attempt → exercise → `POST /check` → feedback → continue →
+`POST /complete` → celebration → path — runs entirely against the real API. The browser never
+decides correctness, hearts, XP, streak or unlocks.
+
+### Frontend structure (`frontend/src/features/lesson/`)
+
+```
+LessonScreen.tsx         loads lesson content (GET /lessons/{id}), mounts a fresh player per run
+LessonPlayer.tsx         composes the screen for the current phase (no business logic)
+state/lessonMachine.ts   pure reducer: phases, events, queue, idempotency key, review history
+hooks/useLessonSession   runs the side effect each phase calls for and dispatches the outcome
+hooks/                   useCountdown, useCountUp, useLessonKeyboard (Enter), useNumberKeys (1–9)
+exercises/registry.tsx   type → { Component, isComplete, answerLanguage } (exhaustive mapped type)
+exercises/*Exercise.tsx  one component per type + shared ChoiceTile / PromptBubble
+components/              LessonHeader, ChallengeStatus, ExerciseStage, LessonFooter, FeedbackBar,
+                         OutOfHeartsDialog, ExitLessonDialog, ChallengeFailed, LessonStates,
+                         celebration/ (LessonComplete, RewardTile, ProgressSummary,
+                         AchievementUnlocks, ReviewList, Confetti)
+```
+API mutations live in `hooks/api/useLessonApi.ts` (`useStartAttempt`, `useCheckAnswer`,
+`useCompleteLesson`, `useRefillHearts`).
+
+### Lesson state machine
+
+```
+            ATTEMPT_READY                       ANSWER_CHANGED
+ loading ─────────────────► answering ◄───────────────┐
+    │ START_FAILED              │ CHECK_STARTED        │
+    ▼                           ▼                      │
+  error / out_of_hearts     checking ─ CHECK_FAILED ───┘ (error kept, same submission id)
+                                │ CHECK_SUCCEEDED
+                                ▼
+                       correct │ incorrect ── CONTINUE ──► answering (next / re-queued)
+                                │                     ├──► out_of_hearts  (heart lost → 0)
+                                │                     └──► challenge_failed
+                                ▼ CONTINUE (queue empty)
+                           completing ── COMPLETE_FAILED ──► error ── RETRY ──► completing
+                                │ COMPLETE_SUCCEEDED
+                                ▼
+                             complete
+ TIME_UP (Legendary clock) from any playing phase ──► challenge_failed
+```
+* Phase is a **discriminated union** (`{name: "incorrect", check}`…) — there are no independent
+  booleans (`isChecking`, `showFeedback`, …) that could contradict each other.
+* Every event is accepted only in specific phases. Late responses, double clicks and React
+  StrictMode's double effects are therefore harmless (a second `COMPLETE_SUCCEEDED` is ignored).
+* The reducer is pure; `useLessonSession` performs effects keyed on the phase
+  (`loading` → start/resume, `completing` → complete) and user actions (check, refill).
+* A wrong answer re-queues the exercise at the end (shown with a "Previous mistake" badge).
+
+### Answer submission flow & idempotency
+
+1. The exercise component reports a draft answer (`ANSWER_CHANGED`). `isComplete` (UI readiness
+   only — e.g. every pair made) enables **Check**.
+2. `check()` takes the current `submissionId` or generates one (`crypto.randomUUID`), dispatches
+   `CHECK_STARTED` (UI locks), and posts `{attempt_id, exercise_id, submission_id, answer}`.
+3. Success → `correct`/`incorrect` with the server's verdict, `correct_answer`, structured
+   `reveal`, `heart_lost`, hearts and attempt progress. The hearts are written into the TanStack
+   cache so every heart counter agrees.
+4. Failure (network/5xx) → back to `answering` **with the same answer and the same
+   submission id** and a "your answer wasn't checked" message. Retrying re-sends the same id; if the
+   first request actually reached the server, the backend returns the stored result instead of
+   deducting another heart (`UNIQUE(attempt_id, submission_id)`). Changing the answer clears the id.
+5. Double submission is impossible: Check is disabled outside `answering` and while the mutation
+   is pending; the reducer also refuses `CHECK_STARTED` in any other phase.
+
+### Hearts, XP, streak & completion
+
+* Hearts: only the server deducts. `heart_lost` drives the `−1 heart` line and the header's shake
+  animation. Continuing after a heart loss that reached 0 → `out_of_hearts`: a non-dismissible
+  dialog with **Refill (real `POST /api/hearts/refill`, cost from the API)**, the next-heart time
+  and Exit. Insufficient gems are explained instead of failing silently. Starting a lesson with
+  0 hearts (409 `OUT_OF_HEARTS`) shows the same dialog; after a refill the attempt is started.
+* Completion: when the queue empties the machine enters `completing` and posts
+  `/progress/lesson/{id}/complete` once. The response (`xp_awarded`, `xp_breakdown`, `streak`,
+  `daily`, `skill_progress`, `unlocked_skill_id`, `new_achievements`, `first_completion`, `mode`)
+  is rendered as is. `useCompleteLesson` then invalidates user, path, progress, hearts, profile and
+  leaderboard so the path is already fresh when the learner presses Continue — no reload.
+* Duplicate completion: the server returns an identical body for an already-completed attempt;
+  the UI shows only that response, so XP can never be double-counted on screen either.
+
+### Refresh recovery
+
+All progress lives on the server. Reloading `/lesson/{id}` calls `POST /attempts`, which resumes
+the in-progress attempt and returns `solved_exercise_ids`; the queue is rebuilt from the unsolved
+exercises in lesson order and the progress bar resumes. If everything was solved but completion
+had not been sent, the machine goes straight to `completing`.
+
+### Exercise registry & components
+
+```ts
+export const exerciseRegistry: { [T in ExerciseType]: ExerciseDefinition<T> } = {
+  multiple_choice: { Component, isComplete, answerLanguage }, …
+};
+```
+* `ExerciseType`, content, answer and reveal types are extracted from the **generated** API unions.
+* `ExerciseRenderer` uses the "correlated union" pattern (a generic helper keyed by `type`) so the
+  exercise, its answer, its reveal and its registry entry are type-checked together — no casts, no
+  switch. Adding a type = backend checker + `gen:api` + one component + one registry entry
+  (TypeScript fails until it is registered).
+* Components own only presentational state (e.g. the half-made pair in match pairs). Draft answers
+  live in the reducer. After a check, components render the verdict from `reveal`: the chosen
+  option red and the right one green, wrong pairs red + shake, input borders, etc.
+* Word bank answers are tile **ids** (duplicates stay distinct); tiles fly between bank and answer
+  line with a shared-layout animation and leave placeholders so nothing reflows.
+* Match pairs are paired locally (colour-coded, tap to unpair) and graded as a set by the server —
+  per-tap verdicts would require shipping the solution to the browser.
+* `ChoiceTile` keeps motion's shake on a wrapper so the button's CSS `tactile` press/lift is never
+  overridden by an inline transform. `ExerciseStage` marks exiting exercises `inert`.
+
+### Backend additions for Phase 3
+
+| Change | Why |
+|---|---|
+| `CheckAnswerOut.reveal` (typed union per exercise type) + `heart_lost` | Structured correct answer *after* a check (highlighting); explicit heart feedback. Each checker gained a `reveal()` method. |
+| Content language hints (`options_language`, `tiles_language`, `left/right_language`, `language`) | Lets the client pronounce the right text without guessing. |
+| `LessonAttempt.mode` (`standard` / `legendary`), status `failed`, `domain/challenge.py` | Legendary challenge validated server-side (see below). |
+| `AttemptOut.expires_at`, `mistake_limit`; progress `status`, `mistakes_remaining` | Drive the challenge UI from server values. |
+| `legendary` flags on path skills and skill lessons (derived from completed legendary attempts) | Purple nodes / crowns without a stored flag. |
+| Lesson layouts rotate (A/B/C, 5–7 exercises, all 5 types each) | Lessons don't feel identical; the demo lesson shows every type. |
+| `GET /api/test/lessons/{id}/answer-key` (test routes only) | Playwright oracle; normal deployments never expose solutions. |
+
+### Bonus: audio (text-to-speech)
+
+`useSpeech` wraps the browser's `SpeechSynthesis` (`es` → `es-ES`, rate 0.9) — no audio files or
+services. `AudioButton` (tactile, labelled "Listen to “…”", tap again to stop) appears on Spanish
+prompts, the feedback solution, and Spanish options/tiles speak when tapped. Without the API the
+button renders disabled with "Audio is not available in this browser" (tested by deleting
+`window.speechSynthesis`).
+
+### Bonus: Legendary challenge (`/lesson/{id}?mode=legendary`)
+
+Rules are a table in `domain/challenge.py` (`MODE_RULES`), so another challenge is one more entry:
+
+| | standard | legendary |
+|---|---|---|
+| Hearts | spent on mistakes | not used |
+| Time limit | — | 150 s (`expires_at`) |
+| Mistakes | unlimited (hearts) | 3rd mistake ends it (`status = failed`) |
+| Requires | unlocked lesson | **completed** lesson (`403 LEGENDARY_LOCKED`) |
+| Reward | first completion XP | one-time `legendary_bonus` (+20 XP) per lesson |
+
+The server enforces the clock lazily: any check/complete after `expires_at` marks the attempt
+failed (`409 ATTEMPT_FAILED`, `reason: time_up`); a new start never resumes an expired attempt.
+The client countdown is display-only. Entry point: "Legendary" button in a completed skill's dialog;
+lesson dots get crowns and fully-legendary skills turn purple on the path.
+
+### Bonus: achievement & daily-goal feedback
+
+`new_achievements` from the completion response animate in as "Achievement unlocked!" cards.
+The daily goal bar shows `daily_xp / daily_goal`, and a "Daily goal complete!" badge pops when this
+lesson's XP crossed the goal (`daily_xp − xp_awarded < goal ≤ daily_xp`). A newly unlocked skill is
+named via `GET /api/skills/{unlocked_skill_id}`.
+
+### E2E coverage (Playwright, real API + test DB, desktop and Pixel 7)
+
+`e2e/lesson.spec.ts` with a `LessonDriver` that answers through the real UI: open lesson & attempt
+created · MC correct/advance · MC incorrect + heart loss + solution · **retried submission keeps
+the same id and costs one heart** (response dropped with `route.fetch()` + `abort`) · word bank
+order + tap-to-remove · match pairs pair/unpair/grade · fill blank · type answer with Enter ·
+full completion (XP, streak +1, unlock "Food", "On Fire" achievement, review, path updated,
+duplicate completion via API returns the same XP) · replay = practice, 0 XP · zero hearts →
+non-dismissible dialog → refill · refresh mid-lesson resumes · failed check keeps the answer ·
+exit confirmation · audio + no-speech fallback · Legendary win (+20, no hearts) · Legendary
+3-mistake failure. Plus `mobile.spec.ts`: lesson at 375 px (no overflow, ≥44 px targets, reachable
+Check/Continue). Every test also fails on any uncaught page error (auto fixture). **61 tests pass.**
+
+### Interview answers
+
+* **Why a reducer for the lesson?** The lesson is a sequence of exclusive states with rules about
+  which transitions are legal. A pure reducer makes them explicit, testable and impossible to
+  contradict (no `isChecking && showFeedback`). Effects are separate and keyed on the phase.
+* **Why does the backend validate answers?** Solutions never reach the browser, so they can't be
+  read from devtools, and hearts/XP depend on correctness — the authority must be the server.
+* **How are duplicate heart deductions prevented?** A client-generated `submission_id` per answer,
+  reused on retry; `UNIQUE(attempt_id, submission_id)` makes the server return the stored verdict.
+* **How is duplicate XP prevented?** A completed attempt returns its stored result; `UNIQUE(user,
+  lesson)` on completions and `UNIQUE(attempt, source)` on the XP ledger; the UI shows only the
+  server's numbers.
+* **How does refresh recovery work?** Start = create *or resume*; the resumed attempt lists solved
+  exercises; the queue is rebuilt from them. Nothing important lives only in React state.
+* **Why separate exercise components?** Each type has different interaction but the same contract
+  (`answer`, `onChange`, `feedback`, `disabled`); the registry plugs them in without a switch.
+* **Why TanStack Query for server state?** Caching, deduplication, retries and invalidation for
+  user/path/hearts/leaderboard; the lesson's moment-to-moment state is not server state.
+* **How would you scale the lesson engine?** New exercise types via the registry; new challenge
+  modes via `MODE_RULES`; prefetch the next lesson; move answer keys/content to a CMS; stateless
+  API servers behind a load balancer with Postgres (the idempotency keys already make retries
+  safe); speech via a TTS service if browser voices aren't enough.
+
+### Known limitations
+
+* No "practice to earn hearts" mode (Out-of-hearts offers Refill or waiting for regeneration).
+* Match pairs can't flash per-pair verdicts while pairing (by design: the solution stays server-side).
+* Speech quality depends on the voices installed in the learner's browser/OS.
+* The Legendary clock is enforced when the next request arrives, not by a background job.
+
+---
+
+## 17. Phase 3 — product experience (supporting screens, dark mode, engagement)
+
+Goal: turn the lesson engine into a complete product loop (path → lesson → rewards → streak /
+quests / league / shop / profile) without breaking the rule that **the backend owns every number**.
+Visual concepts were recreated from the reference screenshots with original SVG/CSS; no
+proprietary assets, code or private APIs.
+
+### New backend surface (`api/routers/engagement.py`)
+
+| Endpoint | Service | Notes |
+|---|---|---|
+| `GET /api/streak?month=YYYY-MM` | `StreakService.calendar` | current/longest, practised days, freeze days, freezes owned/max, Streak Society progress; `INVALID_MONTH` → 422 |
+| `GET /api/shop` | `ShopService.catalog` | gems + items with `available` and a human `unavailable_reason` |
+| `POST /api/shop/purchase` | `ShopService.purchase` | body `{item_id, purchase_id}`; streak freeze (inventory, max 2) or heart refill (same rule as `/hearts/refill`); idempotent per `purchase_id` (`replayed: true` on a retry); `INSUFFICIENT_GEMS` / `ITEM_LIMIT_REACHED` → 409 |
+| `GET /api/quests` | `QuestService.daily` | 3 daily quests derived from today's facts |
+| `POST /api/quests/{code}/claim` | `QuestService.claim` | `REWARD_NOT_AVAILABLE` / `REWARD_ALREADY_CLAIMED` → 409 |
+| `POST /api/units/{id}/chest/claim` | `RewardService.claim_unit_chest` | +20 gems once all of a unit's skills are complete |
+| `GET /api/feed` | `FeedService.feed` | deterministic: own streak, rival league activity, own achievements, rotating tips |
+
+The leaderboard response gained `league {name, promotion_spots, demotion_spots}` and a per-row
+`zone`; the profile gained `league_name` and `top_finishes` (past weeks finished in the promotion
+zone, computed from the XP ledger). The path gained `unit.chest {status, reward_gems}`.
+
+### Data model additions
+
+* `users.streak_freezes` — `CHECK (streak_freezes BETWEEN 0 AND 2)`.
+* `streak_freeze_uses(user_id, used_on)` — `UNIQUE(user_id, used_on)`; a fact table so the
+  calendar can show *which* days a freeze covered.
+* `reward_claims(user_id, reward_key, gems, claimed_at)` — `UNIQUE(user_id, reward_key)`. One
+  table for every one-off reward: `quest:{code}:{yyyy-mm-dd}` and `chest:unit:{id}`. The unique key
+  *is* the idempotency guarantee: a double-click or retried request hits `IntegrityError`, which the
+  service maps to `REWARD_ALREADY_CLAIMED` — no read-then-write race.
+
+**Quests store nothing but claims.** Progress is computed from today's completions and XP ledger
+(`domain/quests.py` defines metric + target + reward), so quests can never drift from reality and
+"reset at midnight" is just a different `day` in the query.
+
+### Streak freezes (lazy, like streak decay)
+
+`domain/streak.py` stays pure. `freezes_to_consume(state, today, owned)` returns the missed days
+when `0 < missed ≤ owned`, else `[]`. Reads (`displayed_streak`) treat a gap covered by freezes as
+unbroken *without writing anything*; the next completion actually consumes them
+(`CompletionService`: decrement `users.streak_freezes`, insert `streak_freeze_uses`, continue the
+streak). So a learner who misses a day with a freeze equipped sees their streak intact, and the
+freeze is spent exactly once — by the write path that already owns the transaction.
+
+### League
+
+`domain/leaderboard.league_zone(rank, size, promotion=3, demotion=2)` assigns zones; the UI draws
+"Promotion zone"/"Demotion zone" dividers where the zone changes, medals for the top 3, highlights
+the current user (`aria-current`) and shows a sleeping-mascot "Don't snooze!" state when the learner
+has 0 XP this week. League tiers above the current one render as locked trophies.
+
+### Frontend
+
+* **Navigation** — `components/layout/navItems.ts` is the single list (final structure in §18:
+  Learn, Leaderboards, Quests, Shop, Profile + **More** for Feed/Streak/Settings). The top bar's stats are links: streak → `/streak`, XP → `/profile`,
+  gems → `/shop`, hearts → hearts dialog (real refill). A course switcher lists the API's courses
+  and previews upcoming ones as "Soon".
+* **Screens** — `features/{streak,shop,quests,feed,leaderboard,profile,settings}`. Each handles
+  loading (geometry-matched skeletons), error (`ErrorState` + retry), empty and success states.
+  Mutations (`usePurchase`, `useClaimQuest`, `useClaimChest`) show toasts and invalidate learner
+  state via `invalidateLearnerState`, so every counter on screen refreshes from the server.
+* **Illustrations** — `components/illustrations/` (Mascot with moods, Chest, Trophy tiers, Flame,
+  hexagonal `BadgeArt`) are original inline SVG using design tokens, so they theme automatically.
+* **Profile** — header band, overview grid (streak, XP, league, top-3 finishes, longest streak,
+  lessons), friend-streak placeholders, achievement badge grid; each badge opens a detail dialog
+  with progress. The completion screen reuses `BadgeArt` for unlocks.
+* **Reminder banner** — dismissible, remembered in `localStorage`; "Allow" asks for browser
+  notification permission (no push backend — mock by design).
+
+### Dark mode
+
+Tokens, not inversion. `tokens.css` adds semantic `surface` and `scrim` colours; `globals.css`
+overrides surface/mist/line/ink/muted and the soft tints under `[data-theme="dark"]`, and a Tailwind
+`@custom-variant dark` targets the attribute. Preference (`light | dark | system`) lives in
+`localStorage` (`lib/theme.ts`); an inline boot script in `<head>` sets `data-theme` **before first
+paint**, so there is no flash; `useTheme` (`useSyncExternalStore`) keeps every tab and the OS
+setting in sync. Brand colours stay constant; only neutrals and tints change.
+
+### Sound & motion
+
+`lib/sfx.ts` synthesises short correct/incorrect/complete cues with the Web Audio API (no audio
+files to license). The lesson player plays one per phase transition; Settings has an on/off switch
+(persisted, default on). The speaker button shows a pulsing ring + bouncing bars while speaking.
+Motion respects `prefers-reduced-motion` (e.g. the available chest only wiggles when motion is
+allowed, and rests between wiggles so it stays an easy target).
+
+### Testing
+
+* Backend: `tests/unit/test_engagement_rules.py` (freezes, shop, quests, reward keys, zones, tips)
+  and `tests/integration/test_engagement.py` (every endpoint, idempotent claims, 409s,
+  freeze consumption across a missed day, chest availability).
+* E2E: `e2e/engagement.spec.ts` (streak calendar + month nav, freeze purchase → gems/inventory,
+  disabled refill at full hearts, quest claim once, feed, unit chest payout, reminder dismissal),
+  `pages.spec.ts` (league zones/highlight, snooze state, profile badge dialog, goal, dark & light
+  persistence, sound toggle, nav, stat links), `mobile.spec.ts` (5 tabs + More sheet, no
+  horizontal overflow on every screen at 375 px). Fixtures now reset the database before **every**
+  test (auto fixture) and complete lessons through the public API with the test-only answer key.
+* Visual QA: a throwaway Playwright capture spec screenshots each screen at 1280/1440 and
+  375/390/430, light and dark; the images were compared with the reference screenshots and fixes
+  made before deleting the spec.
+
+### Known limitations (this phase)
+
+* Friends, friend quests, friend streaks, Super subscription and special offers are honest
+  "Coming soon" placeholders — there is no social graph or payments backend.
+* League is a single seeded cohort ("Silver League"); promotion/demotion between tiers at week end
+  is not simulated (top finishes are counted, tiers don't change).
+* Reminder notifications only request permission; nothing is scheduled.
+
+---
+
+## 18. Phase 3 — final refinement (reference fidelity, entry flow, purchase ledger)
+
+A focused audit against the three primary criteria — functionality, UI/UX similarity, database
+design. Nothing was rebuilt; each change below exists for one of those reasons.
+
+### Main Learn screen: three columns, nothing extra
+
+```
+┌ PRIMARY NAV (256px) ┬ LEARNING PATH (≤ 592px) ┬ RIGHT RAIL (368px) ┐
+│ logo                │ unit banner + Guidebook │ course · streak ·  │
+│ LEARN (active pill) │ winding path            │ XP · gems · hearts │
+│ LEADERBOARDS        │ skill nodes, mascot     │ Super promo        │
+│ QUESTS              │ treasure chest          │ League             │
+│ SHOP                │ unit trophy             │ Daily Quests       │
+│ PROFILE             │ ── next unit ──         │ Daily goal, course │
+│ MORE ▸ Feed/Streak/ │                         │ progress, reminder │
+│        Settings     │                         │                    │
+│ "Want to learn      │                         │                    │
+│  chess?" promo      │                         │                    │
+└─────────────────────┴─────────────────────────┴────────────────────┘
+```
+
+**Why the sidebar got shorter.** The product had grown to eight destinations, and listing them all
+made the screen look like an admin menu. The rule now: the primary navigation shows only the core
+loop (five items), and every other screen is reached through **More** (a fly-out on desktop, a
+bottom sheet on phones), a stat in the top bar, or a card in the right rail. No feature was removed
+— `navItems.ts` has two lists (`PRIMARY_ITEMS`, `MORE_ITEMS`), and both navigations render from
+them, so adding a screen is a one-line change that cannot crowd the Learn page.
+
+* `SideNav` (items + `MoreMenu` + `ChessPromo`) and `BottomNav` (same five + More sheet) share
+  `navItems.ts`; full-colour icons are original SVGs in `components/icons/NavIcons.tsx`.
+* `MoreMenu` is a disclosure (`aria-expanded`), closes on Escape/outside click and returns focus.
+* The chess promo is a preview: "Try chess" opens a dialog that says it is coming soon.
+* The course header card that used to sit above the path moved to the right rail
+  (`CourseProgressCard`); the page keeps a real (visually hidden) `<h1>` with the course title.
+* `UnitHeader` shows "Section 1, Unit n", the unit title and a **Guidebook** link to the unit's
+  guidebook page (§19).
+  ("Section 1" is a constant: the seeded course is one section; the schema has no section level.)
+* Each unit's path ends with its treasure chest and a trophy (`TrophyNode`: grey until every skill
+  is complete, then gold); a titled divider separates units.
+* Right rail order follows the reference: stats, `SuperPromoCard` (mock, links to the shop),
+  `LeaguePreviewCard` (sleeping-mascot invitation when the learner has 0 XP this week),
+  `QuestsPreviewCard` (real quests), then daily goal, course progress and the reminder.
+* Not built: the reference's "Jump here?" placement test — skipping units needs a server-side
+  test-out flow (new attempt mode + unlock rule), which is out of scope; unlocking stays strictly
+  server-derived.
+
+### Entry flow (`features/entry`, routes `/`, `/login`, `/welcome`)
+
+* `/` — logo, site-language picker, the hero, and two actions: GET STARTED → `/welcome`
+  (sign up) and I ALREADY HAVE AN ACCOUNT → `/login`. No app-store or marketing content.
+* `/login` — email and password; opens `/learn` (or the page the visitor was sent from).
+* `/welcome` — **sign up** (email, password, confirm password); creates the account, signs the
+  learner in and opens `/learn`. Each form links to the other. "Log out" (in More) returns to `/`.
+
+The earlier course-selection and daily-goal steps were removed from this flow: there is one
+course, the learner is enrolled in it on registration, and the daily goal keeps its default and
+can be changed in Settings. See §21 for how accounts and sessions work.
+
+### Brand asset integration point
+
+`lib/brand.ts` holds the brand name and optional `logoSrc` / `markSrc`. `BrandLogo` renders the
+original built-in mark unless those are set, so a supplied logo placed in `frontend/public/brand/`
+is picked up by every screen with no layout change (`public/brand/README.md`).
+
+### Shop purchases are a ledger with an idempotency key
+
+Previously a purchase only changed `users.gems` / `users.streak_freezes`; a retried request could
+charge twice and there was no record of spending. Now:
+
+* `shop_purchases(id, user_id → users ON DELETE CASCADE, purchase_id, item_id, price_gems,
+  purchased_at)` with `UNIQUE(user_id, purchase_id)` and `CHECK (price_gems >= 0)`.
+* The client creates one `purchase_id` per click (`lib/ids.ts`) and the mutation's automatic
+  retries reuse it. The service looks the id up first and returns `replayed: true` without
+  charging; the unique constraint covers the concurrent case.
+* The gem change, the item effect and the ledger row are committed in **one transaction**
+  (`HeartsService.apply_refill` is the non-committing rule shared with `/hearts/refill`).
+* The price is copied onto the row (a fact about that purchase), because catalogue prices may
+  change later. Gems still cannot go negative (`CHECK (gems >= 0)` + `InsufficientGems`).
+
+All three reward paths now share one pattern — *an append-only fact table with a unique key*:
+`xp_events (attempt, source)`, `reward_claims (user, reward_key)`, `shop_purchases (user,
+purchase_id)`.
+
+### Fixes found by the audit
+
+* Illustration and stat-icon components applied a default size class *and* the caller's size
+  class; which one won depended on CSS order. They now use the default only when no class is
+  passed (`className ?? default`), so sizes are what the call site says.
+* The right rail's cards could be squeezed by the flex column (the Super card collapsed); rail
+  children no longer shrink and the rail scrolls instead.
+* Production guard: `Settings` refuses `ENABLE_TEST_ROUTES=true` with `APP_ENV=production`
+  (tested), so the answer-key/reset routes cannot be mounted in production by mistake.
+
+### Tests added in this pass
+
+* Backend: retried purchase charged once and recorded once; rejected purchase records nothing;
+  missing `purchase_id` → 422.
+* E2E: `entry.spec.ts` (landing, site language, course strip, log out), sidebar structure (exactly five primary links + More fly-out, Escape/focus),
+  chess promo dialog, right-rail cards, unit banner/guidebook/chest/trophy, current-skill marker.
+
+---
+
+## 19. Phase 3 — guidebooks, motion and settings polish
+
+### Guidebook: course content in the database
+
+The reference product gives every unit a guidebook (key phrases plus grammar, vocabulary or
+pronunciation tips) opened from the notebook button on the unit banner. Ours is built the same way
+as the rest of the course — as **content rows served by the API**, not markup in the frontend.
+
+```
+units 1 ──── 0..1 guidebooks 1 ──── * guidebook_sections 1 ──── * guidebook_entries
+             unit_id UNIQUE          (guidebook_id, position) UNIQUE   (section_id, position) UNIQUE
+             ON DELETE CASCADE       kind ∈ key_phrases|vocabulary|tip  kind ∈ phrase|term|example
+```
+
+* `guidebooks(unit_id UNIQUE → units ON DELETE CASCADE, introduction)` — the unique foreign key is
+  what makes "one guidebook per unit" a database rule rather than a convention.
+* `guidebook_sections(guidebook_id, position, kind, title, body)` and
+  `guidebook_entries(section_id, position, kind, text, translation)` — ordered by `position`,
+  unique within the parent, `CHECK (position >= 1)`, kinds stored as constrained enums. This is
+  the same shape as units/skills/lessons/exercises, so the seeder's upsert-by-position works
+  unchanged and the seed stays idempotent.
+* **Why three tables and not a JSON column?** Sections and entries have a fixed, small shape and
+  an order; rows give constraints, ordering and cascade for free, and a new section kind is an
+  enum value plus a renderer. (Exercises keep JSON because each type's content differs.)
+* **Why not learner-specific?** A guidebook is reference material. No progress is stored for it,
+  so there is nothing to keep consistent.
+
+`GET /api/units/{unit_id}/guidebook` → `GuidebookService.for_unit` → `ContentRepository.
+get_unit_with_guidebook` (one unit, eager-loaded tree, no N+1). Two distinct 404s:
+`UNIT_NOT_FOUND` and `GUIDEBOOK_NOT_FOUND`. Content is authored in `seed/guidebooks.py` with the
+vocabulary each unit teaches (original text written for this project).
+
+### Guidebook frontend (`features/guidebook`, route `/learn/guidebook/[unitId]`)
+
+It is a page inside the app shell (Learn stays highlighted), not a dialog: guidebooks are long,
+scrollable reading and deserve a URL and the Back button.
+
+* `GuidebookView` — Back link, mascot header ("Unit n Guidebook" + introduction), then sections.
+* `sections.tsx` — `SECTION_COMPONENTS` maps section kind → renderer with an exhaustive mapped
+  type (a new kind in the API fails `tsc` until it has a component). `PhraseSection` renders
+  speech-bubble `PhraseCard`s; `TipSection` renders the explanation, a two-column table from the
+  `term` entries and speakable examples.
+* Loading skeleton, error + retry, and a friendly "No guidebook yet" state for the 404.
+
+**Audio.** Every phrase and example has an `AudioButton` (`variant="plain"`), the same component
+the lesson uses, on top of `useSpeech` (browser SpeechSynthesis in the unit's language). It
+exposes `aria-pressed`, swaps to "Stop audio" while playing, starting another phrase cancels the
+current one (never two at once), and it returns to idle on `end`/`error`. Without speech support
+the control is disabled and labelled as unavailable. The E2E test replaces the speech engine
+with a recorder to assert the exact text and language spoken and the one-at-a-time behaviour.
+
+### Animation strategy
+
+Motion is used where it carries meaning, in three tiers:
+
+| Tier | Technique | Used for |
+|---|---|---|
+| State feedback | `tactile` CSS utility (transform + shadow) | every button/tile press and hover |
+| Entrances and reactions | `motion` springs (`whileHover`, `whileInView`, `AnimatePresence`) | node pop-in, badge medallion, chest, trophy, dialogs, sheets, More fly-out, feedback bar, toasts, celebration |
+| Idle life | CSS keyframes | mascot blink, breathing halo behind the current skill |
+
+Rules: at most two idle loops are visible on the path (the START bubble and the current node's
+halo, plus the mascot's slow float); loops rest between cycles so targets stay easy to hit;
+everything honours `prefers-reduced-motion` (CSS loops collapse globally, `useReducedMotion`
+guards the JS ones); animations never move the element a click targets.
+
+* Current node: breathing halo + bouncing START/CONTINUE bubble; unlocked nodes swell on hover.
+* Locked node: a short "no" shake on hover; it still opens the dialog that explains how to unlock.
+* Completed node: its crown medallion springs in after the node.
+* Chest: wiggles and rests when it can be opened, lifts on hover otherwise, lands with a bounce
+  after opening. Trophy: celebrates once when a finished unit scrolls into view.
+* Mascot: slow float, a blink every ~5 s, a springy hop on hover; moods vary per unit.
+
+### Settings
+
+Daily goal (saved to the API), appearance (light/dark/system), sound effects, and an **Account**
+card: name and username from the API, current course, Log out, and a plain statement that
+sign-in is simulated.
+
+### Brand
+
+Unchanged integration point: `lib/brand.ts` + `public/brand/` + `<BrandLogo>`. The app keeps its
+original mark and mascot until a logo file is supplied; no third-party logo or character is
+drawn in code.
+
+---
+
+## 20. Phase 3.6 — centralised branding (`BrandLogo`, `DuoMascot`)
+
+**Status: the integration is complete; the final logo and mascot files are still required.** No
+usable asset file has been added to `frontend/public/brand/`, so the app shows placeholder
+artwork. The supplied references are screenshots; they are not cropped, traced or redrawn.
+
+### One config, two components
+
+```
+lib/brand.ts ──► <BrandLogo>   (landing header, sidebar, tablet rail)
+     │
+     └─────────► <DuoMascot>   (landing hero, onboarding, path, guidebook, quests, shop,
+                                Super card, league empty states, reminder, lesson complete)
+```
+
+* `lib/brand.ts` is the only file that contains the product name or an asset path:
+  `name`, `wordmark`, `logoSrc`, `markSrc` and `mascot[state]`.
+* `BrandLogo` renders the configured file (height-locked, width from the file's own
+  proportions, so it cannot be stretched) or the placeholder mark.
+* `DuoMascot` takes a `state` — `idle`, `happy`, `celebrating`, `lesson-success`,
+  `lesson-failure`, `guidebook`, `achievement`, `sleeping` — and renders that state's file,
+  falling back to `idle`, then to the placeholder drawing. The placeholder `Mascot` is no longer
+  exported from the illustrations barrel, so screens cannot bypass the shared component.
+* The mascot fills a box sized by its `className`, so artwork swaps and animation never shift
+  the layout. `animated` adds a slow float, a hover reaction and a short hop for celebrating
+  states; `useReducedMotion` turns all of it off.
+* User-facing strings (page titles, "… home" labels, the outage message, the promo line) read
+  `BRAND.name`. Storage keys such as `lingo-theme` are internal identifiers and unchanged, so
+  saved preferences survive a rename.
+
+**Why this shape:** the brand is the one thing most likely to change late, and it appears on
+almost every screen. With a single config and two components, installing real artwork is a
+data change (copy files, edit one object) with no layout or test changes.
+
+### Landing page
+
+White header (logo, site language, Login, Get started), hero with the mascot beside the
+headline and both calls to action, and the three feature cards restyled with tinted icon tiles.
+Routing is unchanged.
+
+### Tests
+
+`entry.spec.ts` asserts that the landing and Learn pages render the brand through the shared
+components and that no request — in particular nothing under `/brand/` — fails.
+
+---
+
+## 21. Authentication (sign-in, sessions, protected routes)
+
+The assessment allows simplified authentication, so there is no OAuth, email verification or
+password reset. What exists is real end to end: an account is created by sign-up, credentials are
+checked by the API at login, a session is issued, every learner endpoint requires it, and the
+app's signed-in area is closed without it. Sign-up and login share one code path and one table.
+
+**Persistence.** An account is a row in `users` (only a PBKDF2 hash of the password) and the session
+is a signed token in the browser's localStorage, valid for `SESSION_DAYS`; both survive restarts.
+Starting the API only creates missing tables and adds missing nullable columns
+(`create_schema`) — it never seeds or drops. Only `python -m app.seed --reset` wipes accounts, and
+it first saves a `data/app.db.bak-<time>` copy. The landing, sign-up and login pages send a visitor
+with a session straight to `/learn`; an expired or revoked token gets a 401, which clears it and
+shows the login page. Nothing falls back to the seeded learner: they are an ordinary account.
+
+### Flow
+
+```
+login form ── POST /api/auth/login {identifier, password} ──► AuthService.login
+                                                               │ verify PBKDF2 hash (users.password_hash)
+            ◄── { token, expires_at } ─────────────────────────┘ issue signed token
+store token (localStorage) ──► every request: Authorization: Bearer <token>
+                               └─► get_current_user ─► AuthService.user_for_token ─► User | 401
+```
+
+### Sign-up
+
+`POST /api/auth/signup {email, password}` → `AuthService.signup`:
+
+1. Normalises the email (trimmed, lower-case) and refuses one that is taken (`409 EMAIL_TAKEN`;
+   `users.email` is also UNIQUE, so two simultaneous registrations cannot both succeed — the loser
+   gets the same 409).
+2. Inserts a row in the existing `users` table: `email`, a `password_hash` made with a random
+   16-byte salt (the password itself is never stored or logged), a username derived from the email
+   (`sam.lee@…` → `samlee`, made unique with a numeric suffix), a display name, an avatar colour
+   handed out in turn, enrolment in the course, full hearts and the starting gems.
+3. Returns the same `{token, expires_at}` a login returns, so the browser is signed in at once.
+
+A new learner has no attempts, completions or XP, so the learning path starts at the first skill
+and every other table needs no seeding — the "store facts, compute states" rule means progress
+simply does not exist yet. The password must be at least 8 characters (`MIN_PASSWORD_LENGTH`,
+validated by the API; the form checks the same rule and the match with the confirmation field).
+
+### Backend
+
+* **Schema: two columns, no new tables.** `users.email` (unique, nullable) and
+  `users.password_hash` (nullable). Seeded rivals have neither, so they can never sign in. The
+  learner/progress model is untouched.
+* **`domain/auth.py` (pure).** Passwords are salted PBKDF2-SHA256 hashes in a self-describing
+  string (`pbkdf2_sha256$iterations$salt$hash`), compared in constant time. The work factor is a
+  setting (`PASSWORD_ITERATIONS`), stored in each hash so it can be raised later.
+* **Sessions are signed tokens, not rows.** `<user id>.<expiry>.<HMAC-SHA256 signature>` signed
+  with `SECRET_KEY`, valid for `SESSION_DAYS` (30). The server verifies a token with one HMAC and
+  one primary-key lookup, and stores nothing.
+  *Trade-off:* a token cannot be revoked before it expires — logging out discards it in the
+  browser. A `sessions` table would add revocation at the cost of a write per login and a read
+  per request; for a single-learner demo the stateless design is simpler and was chosen
+  deliberately. Rotating `SECRET_KEY` invalidates every session at once.
+* **One boundary.** `get_current_user` reads the bearer token and returns the learner or raises
+  `NotAuthenticated`. Every learner route already depended on it, so protecting the whole API was
+  a change to that single function. Public: health, the course list, the login endpoint, and
+  guidebooks (reference content).
+* **Errors.** A new category, `Unauthenticated` → 401, with `NOT_AUTHENTICATED` and
+  `INVALID_CREDENTIALS`. An unknown account and a wrong password return the same error, so the
+  response does not reveal which accounts exist.
+* **Production guard.** `Settings` refuses to start with `APP_ENV=production` and the
+  development `SECRET_KEY`, for the same reason it refuses test routes there.
+
+### Frontend
+
+* `lib/auth/session.ts` — the token in `localStorage` (shared across tabs via the storage event);
+  `useSession()` exposes signed-in / signed-out / unknown through `useSyncExternalStore`.
+* `lib/api/client.ts` — a middleware adds the `Authorization` header to every request and, on a
+  401 from anything but the login call, clears the session.
+* `features/auth/AuthGate.tsx` wraps the signed-in layouts (`(main)` and `(lesson)`): without a
+  session it redirects to `/login?next=<path>` and renders nothing, so protected screens never
+  flash. After login the visitor returns to the page they asked for (same-origin paths only).
+  The gate is a navigation convenience — **the API is the security boundary**.
+* `LoginView` and `SignupView` share `AuthPage` (frame), `AuthField` (field with linked,
+  announced error) and `useRedirectWhenSignedIn`. Both validate before sending, show field-level
+  messages, map a 401 to "Wrong email or password." and a 409 to "An account with this email
+  already exists", and redirect once the session exists (so a signed-in visitor opening either
+  page goes straight to the app).
+* `useLogout()` (More menu, bottom sheet, Settings) calls the logout endpoint and loads the
+  landing page with a full page load, which discards everything in memory about the learner. The
+  token is removed *without* notifying listeners first: otherwise the route guard would see the
+  cleared session and send the visitor to the login page before the landing page loads.
+
+*Why localStorage and not an HttpOnly cookie?* The API and the app run on different origins in
+development, and a bearer token keeps the API a plain, stateless JSON service with no CSRF
+surface. The cost is that script running on the page could read the token; a production
+deployment behind one domain should switch to an HttpOnly, SameSite cookie — a change confined to
+`get_current_user`, the login response and the client middleware.
+
+### Demo account
+
+The seeded learner's email and password are defined in `backend/app/seed/people.py` and listed
+in the README. The seed sets them only when the learner has no password yet.
+
+### Tests
+
+* `tests/integration/test_auth.py` — hashing, token expiry and forgery (five tamper cases),
+  login by email and by username, the single 401 for wrong credentials, input validation, the
+  password stored only as a hash, 401 on fourteen learner endpoints without a session, malformed
+  `Authorization` headers, public endpoints, session expiry, logout; and for sign-up: the new
+  learner and their starting state, logging in afterwards, separate progress per learner,
+  duplicate emails (any case, including the seeded learner), unique usernames, validation.
+* `e2e/auth.spec.ts` — landing → login ↔ sign-up links, sign-up fields and validation without a
+  request, registering and landing on a fresh path, duplicate email, **register → log out → log in
+  with the same credentials**, case-insensitive email, separate progress between two accounts,
+  login errors, session surviving reload, every protected route redirecting to login, return to
+  the requested page, logout locking the app again and a forged session being dropped. All other
+  E2E tests sign in through the real endpoint.
+
+---
+
+## 22. Section 1 — Units 1–10 (course content and the full learning path)
+
+The course is now one section of ten units, seeded into the database and rendered entirely from
+the API. Nothing about the path is hard-coded in React.
+
+### Content model: unchanged hierarchy, one new column
+
+```
+Course ─< Unit ─< Skill ─< Lesson ─< Exercise        Unit ─── Guidebook ─< Section ─< Entry
+           │
+           └ section (new): which part of the course the unit belongs to
+```
+
+* `units.section` (`INTEGER NOT NULL DEFAULT 1`, `CHECK (section >= 1)`). Units stay numbered
+  across the whole course (`position` 1…10); `section` groups them. The banner's
+  "SECTION 1, UNIT N" is `unit.section` + `unit.position` from the path response — previously a
+  constant in the frontend.
+* **Why a column and not a `sections` table?** A section currently has no attributes of its own
+  (no title, no description, no rules). A table would add a join and an entity with nothing in
+  it. When Section 2 arrives with its own title, promoting the column to a table is a mechanical
+  migration.
+* Unit colour stays `units.theme`, a design-token name (`leaf`, `grape`, `teal`, `sky`, `pink`,
+  `ember`, `cherry`); the frontend maps it to a tone with a safe fallback. Two tokens were added
+  for the path: `teal` and `pink`.
+* Node kind is `skills.icon` (`star`, `book`, `headphones`, `dumbbell`), mapped to an icon in
+  `skillPresentation.ts`.
+
+### Shape of the seed
+
+| | Count |
+|---|---|
+| Units | 10 (titles and order as specified) |
+| Skills | 40 — per unit: 3 authored + 1 generated practice skill |
+| Lessons | 80 — 2 per skill |
+| Exercises | 507 — 6 or 7 per lesson, all five types across each lesson |
+| Guidebooks | 10 — one per unit, with that unit's own phrases and tips |
+
+**Authoring format.** `seed/spanish_course.py` describes each lesson as four words and three
+sentences; `seed/builder.py` turns that into a fixed sequence covering multiple choice, word bank,
+match pairs, fill in the blank and type the answer, and validates every exercise with the same
+checker that will grade it. Ten units therefore share one code path — no per-unit code.
+
+**Practice skills are generated, not authored.** `practice_skill()` builds each unit's fourth
+skill by recombining words and sentences from that unit's six authored lessons (de-duplicated so
+options and pairs stay unambiguous). It adds review without new vocabulary, and a test asserts
+that a practice skill only uses its own unit's words.
+
+**Learner state is separate.** None of this touches learner tables: a new account has no rows in
+attempts, completions or XP, so its path starts at Unit 1 with everything else locked, derived by
+the existing unlock rules. The seeded demo learner has one skill completed and one in progress.
+
+### The path (`features/path`)
+
+* `UnitSection` → `UnitHeader` (sticky, unit colour, section/unit label, title, Guidebook link)
+  + `PathTrack` (nodes on a continuous wave, then the unit's chest and trophy); a titled divider
+  separates units.
+* `SkillNode` — states from the API only: locked (grey, padlock), available, in progress (ring +
+  check), completed (gold, crown), legendary (purple). The skill's name appears on hover or
+  keyboard focus instead of a permanent label, keeping the path as clean as the reference; the
+  accessible name always carries it.
+* **"Jump here?"** — the first node of every unit the learner has not reached is drawn in that
+  unit's colour with a fast-forward icon and a call-out, so each unit announces itself. Pressing
+  it opens `JumpDialog`, which says what opens the unit and offers "Go to my lesson" (scrolls to
+  and opens the current skill). It does not unlock anything: unlocking is a server rule, and this
+  build has no placement test. A real "test out" would be a new attempt mode plus an unlock rule.
+* `PathCharacter` — two characters per unit, in the gaps between nodes, greyed while the unit is
+  locked. Artwork comes from a reusable list in `lib/brand.ts` (`pathCharacters`), cycled along
+  the path; with the list empty the built-in mascot is shown in varying states.
+* `ScrollToTopButton` (appears after scrolling) and `UpNextCard` (the next section, locked,
+  "Coming soon") close the page.
+
+### Tests
+
+* Backend: the seed's exact unit titles/order, section, 4 skills × 2 lessons everywhere, every
+  lesson using at least four exercise types, practice skills reusing only their unit's
+  vocabulary, the theme and icon lists, and the chest staying locked until the unit's last lesson.
+  Tests that used to assume "three skills per unit" now derive the shape from named constants.
+* E2E: units 1–10 in order with their own header, Guidebook link, four nodes, chest and trophy;
+  ten distinct guidebooks; "Jump here?" on every unit ahead, its dialog, and proof that it does
+  not unlock anything; the "Up next" card and the scroll-to-top button.
+
+### Unit 1 as configuration: `unitArt.ts`, `CoinNode`, extracted artwork
+
+Unit 1 is drawn to match the reference screenshots, without a Unit-1-only component. How a unit
+is *drawn* is data in `features/path/unitArt.ts` (`UNIT_ART`, keyed by unit position); a unit with
+no entry keeps the default path, so Units 2–10 are unchanged. An entry sets:
+
+* `coinNodes` — skills are flat "coins" (`CoinNode`): an ellipse with a darker edge that sinks
+  when pressed, in the unit's colour, with a light ring and the START/CONTINUE bubble on the
+  learner's current skill;
+* `chestAfter`, `xs`, `step` — where the chest sits (after the third skill) and the horizontal
+  position and spacing of every item (`layoutFixed`), giving the short S-curve;
+* `characters` — artwork beside the path, level with a given item (`CharacterDecoration`: very
+  small float and tilt, hop on hover, still with reduced motion);
+* `locked` — artwork shown while a skill, the chest or the trophy is locked.
+
+`trackItems()` turns skills plus `chestAfter` into the order of things down the track, so the
+chest position is configuration too. **State is never configured**: which coin is locked, current
+or complete comes from the API; the config only decides how each state is drawn.
+
+* **Seed data, not code:** Unit 1's theme is `lime` (a new tone, `#58cc02`, used only by this
+  unit) and `unit(..., node_icon="star")` gives all four of its skills the star icon.
+* **Extracted artwork.** `frontend/scripts/extract_path_art.py` cuts the Duo, locked star coin,
+  locked chest and locked trophy out of the reference screenshot as transparent PNGs in
+  `public/brand/path/`: it removes only the white background connected to each crop's border and
+  changes no other pixel. Add a rectangle to `ASSETS` and re-run for more artwork. The sources
+  are screenshots, so the files are small (about 65–105 px) and soften slightly when scaled.
+* **Guidebook.** Unit 1 has the supplied café phrases and the "Conjunctions: y & o" tip. Tips now
+  accent their table's words wherever they occur in the explanation and examples
+  (`Highlighted.tsx`, whole words only), and the Guidebook header uses the extracted Duo.
+* The unit banner shows the arrow before "Section 1, Unit N" (decorative — there is no section
+  overview page to go back to) and keeps the "Guidebook" label on phones from 360 px up.
+
+### Unit 1 lesson flow: intro card → loading → exercise
+
+```
+path ── press a coin ──► LessonIntro card ── START +10 XP ──► /lesson/{id} ──► LessonLoading ──► exercise
+        (Unit 1, unlocked)   (no request yet)                  (route change)    (Duo, "LOADING…")
+```
+
+* **Intro card (`LessonIntro`).** For a unit with its own look (`UNIT_ART`), pressing an unlocked
+  coin opens a card under it instead of the skill dialog: unit title, "Lesson n of m" and
+  "START +10 XP" (the XP is the lesson's `xp_reward` from `GET /api/skills/{id}`). It makes no
+  request and changes nothing; the button only navigates (`useSkillActions`, shared with the skill
+  dialog). Completed skills show "Practice again" and Legendary; locked skills still open the dialog
+  that explains how to unlock them. `LearnView.openSkill` makes that choice in one place, and
+  Escape or a press outside closes the card.
+* **Loading screen (`LessonLoading`).** Duo on his base with notes drifting up, "LOADING…" and a
+  tip. It is the same screen while the lesson content loads (`LessonScreen`) and while the attempt
+  is created (the player's `loading` phase), so nothing flickers between the two. It stays up for at
+  least 700 ms so it reads as a transition, and never waits for anything else.
+* **The player itself is unchanged in behaviour:** `POST /lessons/{id}/attempts`, `/check`,
+  hearts, XP and completion are the existing endpoints and rules.
+
+Player refinements (these apply to every lesson, because the lesson engine is shared — the intro
+card is the only part scoped to Unit 1):
+
+* **SKIP.** The reducer has a `SKIP` event, accepted only while answering and only when another
+  exercise is waiting: it sends the current exercise to the back of the queue. There is no check
+  request, no heart is lost and progress does not move, and the exercise must still be solved before
+  the lesson can complete (the server requires every exercise to be solved). With one exercise left,
+  Skip is disabled. CHECK stays grey until an answer is chosen.
+* **NEW WORD.** `MultipleChoiceContent.label` (`"new_word"` or null) is set by the seed on picture
+  cards that introduce a word; the player shows the tag from data. Those prompts read
+  "Which one of these is “cat”?" (the article is dropped from the question).
+* **Picture cards:** the picture fills the top, the word and its number key sit below. The pictures
+  are the seed's emoji — there are no illustrations of that kind in the project to extract.
+* Header: a slimmer progress bar; footer: SKIP and CHECK side by side, full width on phones.

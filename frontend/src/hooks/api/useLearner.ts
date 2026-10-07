@@ -8,10 +8,11 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import type { DailyGoalOption } from "@/types/api";
 
 /** Identity + everything the top stats bar needs (XP, streak, hearts, gems, daily goal). */
-export function useCurrentUser() {
+export function useCurrentUser({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.user(),
     queryFn: () => request(api.GET("/api/users/me")),
+    enabled,
   });
 }
 

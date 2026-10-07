@@ -30,6 +30,11 @@ class TypeAnswerAnswer(ExerciseModel):
     text: str = Field(max_length=300)
 
 
+class TypeAnswerReveal(ExerciseModel):
+    type: Literal["type_answer"] = "type_answer"
+    text: str
+
+
 class TypeAnswerChecker(ExerciseChecker[TypeAnswerContent, TypeAnswerSolution, TypeAnswerAnswer]):
     exercise_type = ExerciseType.TYPE_ANSWER
     content_model = TypeAnswerContent
@@ -52,6 +57,9 @@ class TypeAnswerChecker(ExerciseChecker[TypeAnswerContent, TypeAnswerSolution, T
             f"Watch your accents: {shown}" if match.kind is MatchKind.ACCENT_INSENSITIVE else None
         )
         return CheckResult(is_correct=match.is_match, correct_answer=shown, note=note)
+
+    def reveal(self, content: TypeAnswerContent, solution: TypeAnswerSolution) -> TypeAnswerReveal:
+        return TypeAnswerReveal(text=solution.accepted[0])
 
     def sample_correct_answer(
         self, content: TypeAnswerContent, solution: TypeAnswerSolution

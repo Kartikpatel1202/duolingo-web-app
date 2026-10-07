@@ -27,6 +27,160 @@
         }
       }
     },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign in with email (or username) and password",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the email/password is wrong (NOT_AUTHENTICATED, INVALID_CREDENTIALS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Create an account and sign in",
+        "operationId": "signup_api_auth_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign out (the client then discards its token)",
+        "operationId": "logout_api_auth_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in, or the email/password is wrong (NOT_AUTHENTICATED, INVALID_CREDENTIALS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/users/me": {
       "get": {
         "tags": [
@@ -34,6 +188,24 @@
         ],
         "summary": "Current learner with top-bar stats",
         "operationId": "get_me_api_users_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -73,15 +245,33 @@
         ],
         "summary": "Update learner preferences (daily goal)",
         "operationId": "update_me_api_users_me_patch",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateUserIn"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -154,6 +344,22 @@
               "type": "integer",
               "title": "Course Id"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -205,6 +411,22 @@
             "schema": {
               "type": "integer",
               "title": "Course Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -259,6 +481,22 @@
               "type": "integer",
               "title": "Skill Id"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -268,6 +506,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SkillDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/units/{unit_id}/guidebook": {
+      "get": {
+        "tags": [
+          "courses",
+          "guidebook"
+        ],
+        "summary": "Unit guidebook: key phrases, vocabulary and tips",
+        "operationId": "get_guidebook_api_units__unit_id__guidebook_get",
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Unit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidebookOut"
                 }
               }
             }
@@ -310,6 +601,22 @@
             "schema": {
               "type": "integer",
               "title": "Lesson Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -363,7 +670,7 @@
           "lessons"
         ],
         "summary": "Start a lesson attempt, or resume the active one",
-        "description": "201 when a new attempt is created, 200 when the in-progress attempt is resumed.",
+        "description": "201 when a new attempt is created, 200 when the in-progress attempt is resumed. Optional body `{\"mode\": \"legendary\"}` starts a Legendary challenge on a completed lesson.",
         "operationId": "start_attempt_api_lessons__lesson_id__attempts_post",
         "parameters": [
           {
@@ -374,8 +681,41 @@
               "type": "integer",
               "title": "Lesson Id"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/StartAttemptIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -456,6 +796,22 @@
               "type": "integer",
               "title": "Lesson Id"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -519,6 +875,24 @@
         ],
         "summary": "XP, daily goal, streak and course progress summary",
         "operationId": "get_progress_api_progress_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -526,6 +900,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProgressOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -548,6 +932,22 @@
             "schema": {
               "type": "integer",
               "title": "Lesson Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -622,6 +1022,24 @@
         ],
         "summary": "Hearts with regeneration info",
         "operationId": "get_hearts_api_hearts_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -629,6 +1047,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HeartsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -643,6 +1071,24 @@
         ],
         "summary": "Refill hearts with gems",
         "operationId": "refill_hearts_api_hearts_refill_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -696,6 +1142,22 @@
               "default": 30,
               "title": "Limit"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -729,6 +1191,24 @@
         ],
         "summary": "Profile, stats and achievements",
         "operationId": "get_profile_api_profile_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -736,6 +1216,457 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/streak": {
+      "get": {
+        "tags": [
+          "streak"
+        ],
+        "summary": "Streak with a month calendar",
+        "operationId": "get_streak_api_streak_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "2026-10"
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreakCalendarOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shop": {
+      "get": {
+        "tags": [
+          "shop"
+        ],
+        "summary": "Shop items and gem balance",
+        "operationId": "get_shop_api_shop_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shop/purchase": {
+      "post": {
+        "tags": [
+          "shop"
+        ],
+        "summary": "Buy an item with gems (idempotent per purchase_id)",
+        "operationId": "purchase_api_shop_purchase_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/quests": {
+      "get": {
+        "tags": [
+          "quests"
+        ],
+        "summary": "Today's quests with progress",
+        "operationId": "get_quests_api_quests_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/quests/{code}/claim": {
+      "post": {
+        "tags": [
+          "quests"
+        ],
+        "summary": "Claim a completed quest's reward (once per day)",
+        "operationId": "claim_quest_api_quests__code__claim_post",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/units/{unit_id}/chest/claim": {
+      "post": {
+        "tags": [
+          "rewards"
+        ],
+        "summary": "Open a completed unit's treasure chest (once)",
+        "operationId": "claim_chest_api_units__unit_id__chest_claim_post",
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Unit Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (e.g. OUT_OF_HEARTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request (VALIDATION_ERROR, INVALID_ANSWER)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feed": {
+      "get": {
+        "tags": [
+          "feed"
+        ],
+        "summary": "Activity feed",
+        "operationId": "get_feed_api_feed_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -785,6 +1716,14 @@
         ],
         "title": "AchievementSummaryOut"
       },
+      "AttemptMode": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "legendary"
+        ],
+        "title": "AttemptMode"
+      },
       "AttemptOut": {
         "properties": {
           "attempt_id": {
@@ -795,6 +1734,9 @@
             "type": "integer",
             "title": "Lesson Id"
           },
+          "mode": {
+            "$ref": "#/components/schemas/AttemptMode"
+          },
           "status": {
             "$ref": "#/components/schemas/AttemptStatus"
           },
@@ -802,6 +1744,31 @@
             "type": "string",
             "format": "date-time",
             "title": "Started At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "Deadline for timed challenges; null otherwise."
+          },
+          "mistake_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mistake Limit",
+            "description": "Mistakes allowed in a challenge; null otherwise."
           },
           "solved_exercise_ids": {
             "items": {
@@ -827,8 +1794,11 @@
         "required": [
           "attempt_id",
           "lesson_id",
+          "mode",
           "status",
           "started_at",
+          "expires_at",
+          "mistake_limit",
           "solved_exercise_ids",
           "mistakes",
           "total_exercises",
@@ -838,6 +1808,10 @@
       },
       "AttemptProgressOut": {
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AttemptStatus",
+            "description": "`failed` when a challenge just ended."
+          },
           "solved_count": {
             "type": "integer",
             "title": "Solved Count"
@@ -850,6 +1824,18 @@
             "type": "integer",
             "title": "Mistakes"
           },
+          "mistakes_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mistakes Remaining",
+            "description": "Challenges only; null in standard lessons."
+          },
           "can_complete": {
             "type": "boolean",
             "title": "Can Complete"
@@ -857,9 +1843,11 @@
         },
         "type": "object",
         "required": [
+          "status",
           "solved_count",
           "total_exercises",
           "mistakes",
+          "mistakes_remaining",
           "can_complete"
         ],
         "title": "AttemptProgressOut"
@@ -868,7 +1856,8 @@
         "type": "string",
         "enum": [
           "in_progress",
-          "completed"
+          "completed",
+          "failed"
         ],
         "title": "AttemptStatus"
       },
@@ -945,10 +1934,46 @@
             "type": "boolean",
             "title": "Is Correct"
           },
+          "heart_lost": {
+            "type": "boolean",
+            "title": "Heart Lost",
+            "description": "Whether this answer cost a heart."
+          },
           "correct_answer": {
             "type": "string",
             "title": "Correct Answer",
             "description": "Revealed only after the answer has been checked."
+          },
+          "reveal": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MultipleChoiceReveal"
+              },
+              {
+                "$ref": "#/components/schemas/WordBankReveal"
+              },
+              {
+                "$ref": "#/components/schemas/MatchPairsReveal"
+              },
+              {
+                "$ref": "#/components/schemas/FillBlankReveal"
+              },
+              {
+                "$ref": "#/components/schemas/TypeAnswerReveal"
+              }
+            ],
+            "title": "Reveal",
+            "description": "Structured correct answer, for highlighting in the UI.",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "fill_blank": "#/components/schemas/FillBlankReveal",
+                "match_pairs": "#/components/schemas/MatchPairsReveal",
+                "multiple_choice": "#/components/schemas/MultipleChoiceReveal",
+                "type_answer": "#/components/schemas/TypeAnswerReveal",
+                "word_bank": "#/components/schemas/WordBankReveal"
+              }
+            }
           },
           "note": {
             "anyOf": [
@@ -985,7 +2010,9 @@
           "submission_id",
           "exercise_id",
           "is_correct",
+          "heart_lost",
           "correct_answer",
+          "reveal",
           "note",
           "explanation",
           "hearts",
@@ -1026,6 +2053,24 @@
         ],
         "title": "ChoiceOption"
       },
+      "ClaimOut": {
+        "properties": {
+          "gems_awarded": {
+            "type": "integer",
+            "title": "Gems Awarded"
+          },
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gems_awarded",
+          "gems"
+        ],
+        "title": "ClaimOut"
+      },
       "CompleteLessonIn": {
         "properties": {
           "attempt_id": {
@@ -1050,6 +2095,9 @@
           "lesson_id": {
             "type": "integer",
             "title": "Lesson Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/AttemptMode"
           },
           "first_completion": {
             "type": "boolean",
@@ -1134,6 +2182,7 @@
         "required": [
           "attempt_id",
           "lesson_id",
+          "mode",
           "first_completion",
           "xp_awarded",
           "xp_breakdown",
@@ -1464,6 +2513,102 @@
         ],
         "title": "ErrorResponse"
       },
+      "FeedItemOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "achievement",
+              "league",
+              "streak",
+              "tip"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "examples": [
+              "CULTURE",
+              "LEAGUE"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Color"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "title",
+          "body",
+          "actor_name",
+          "actor_color",
+          "occurred_at"
+        ],
+        "title": "FeedItemOut"
+      },
+      "FeedOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "FeedOut"
+      },
       "FillBlankAnswer": {
         "properties": {
           "type": {
@@ -1507,6 +2652,17 @@
               }
             ],
             "title": "Translation"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           },
           "options": {
             "anyOf": [
@@ -1561,6 +2717,208 @@
           "content"
         ],
         "title": "FillBlankExerciseOut"
+      },
+      "FillBlankReveal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "fill_blank",
+            "title": "Type",
+            "default": "fill_blank"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "FillBlankReveal"
+      },
+      "GuidebookEntryKind": {
+        "type": "string",
+        "enum": [
+          "phrase",
+          "term",
+          "example"
+        ],
+        "title": "GuidebookEntryKind"
+      },
+      "GuidebookEntryOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/GuidebookEntryKind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "In the language being learned; this is what audio speaks."
+          },
+          "translation": {
+            "type": "string",
+            "title": "Translation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "text",
+          "translation"
+        ],
+        "title": "GuidebookEntryOut"
+      },
+      "GuidebookOut": {
+        "properties": {
+          "unit_id": {
+            "type": "integer",
+            "title": "Unit Id"
+          },
+          "unit_position": {
+            "type": "integer",
+            "title": "Unit Position"
+          },
+          "unit_title": {
+            "type": "string",
+            "title": "Unit Title"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "description": "BCP-47 code of the entries' language.",
+            "examples": [
+              "es"
+            ]
+          },
+          "introduction": {
+            "type": "string",
+            "title": "Introduction"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/GuidebookSectionOut"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit_id",
+          "unit_position",
+          "unit_title",
+          "language",
+          "introduction",
+          "sections"
+        ],
+        "title": "GuidebookOut"
+      },
+      "GuidebookSectionKind": {
+        "type": "string",
+        "enum": [
+          "key_phrases",
+          "vocabulary",
+          "tip"
+        ],
+        "title": "GuidebookSectionKind"
+      },
+      "GuidebookSectionOut": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/GuidebookSectionKind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "term_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Term Heading",
+            "description": "Heading of the tip table's first column."
+          },
+          "translation_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Heading",
+            "description": "Heading of the tip table's second column."
+          },
+          "highlights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Highlights",
+            "description": "Words to accent in the tip's text; empty: default."
+          },
+          "footer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer",
+            "description": "Closing paragraph, after the tip's table."
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "default",
+              "examples_first",
+              "footer_last"
+            ],
+            "title": "Layout",
+            "description": "Order of a tip's parts: table/note/examples, examples/note/table or table/examples/note."
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/GuidebookEntryOut"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "title",
+          "body",
+          "term_heading",
+          "translation_heading",
+          "highlights",
+          "footer",
+          "layout",
+          "entries"
+        ],
+        "title": "GuidebookSectionOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1640,6 +2998,9 @@
       },
       "LeaderboardOut": {
         "properties": {
+          "league": {
+            "$ref": "#/components/schemas/LeagueOut"
+          },
           "week_start": {
             "type": "string",
             "format": "date",
@@ -1663,6 +3024,7 @@
         },
         "type": "object",
         "required": [
+          "league",
           "week_start",
           "resets_at",
           "entries",
@@ -1675,6 +3037,21 @@
           "rank": {
             "type": "integer",
             "title": "Rank"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "promotion",
+                  "demotion"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone"
           },
           "user_id": {
             "type": "integer",
@@ -1700,6 +3077,7 @@
         "type": "object",
         "required": [
           "rank",
+          "zone",
           "user_id",
           "display_name",
           "avatar_color",
@@ -1725,6 +3103,29 @@
           "xp"
         ],
         "title": "LeaderboardStandingOut"
+      },
+      "LeagueOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "promotion_spots": {
+            "type": "integer",
+            "title": "Promotion Spots"
+          },
+          "demotion_spots": {
+            "type": "integer",
+            "title": "Demotion Spots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "promotion_spots",
+          "demotion_spots"
+        ],
+        "title": "LeagueOut"
       },
       "LessonOut": {
         "properties": {
@@ -1805,6 +3206,29 @@
         ],
         "title": "LessonStatus"
       },
+      "LoginIn": {
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Identifier",
+            "description": "Email address or username."
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "identifier",
+          "password"
+        ],
+        "title": "LoginIn"
+      },
       "MatchPairsAnswer": {
         "properties": {
           "type": {
@@ -1849,6 +3273,28 @@
             "maxItems": 6,
             "minItems": 2,
             "title": "Right"
+          },
+          "left_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left Language"
+          },
+          "right_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Right Language"
           }
         },
         "additionalProperties": false,
@@ -1892,6 +3338,29 @@
         ],
         "title": "MatchPairsExerciseOut"
       },
+      "MatchPairsReveal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "match_pairs",
+            "title": "Type",
+            "default": "match_pairs"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/SubmittedPair"
+            },
+            "type": "array",
+            "title": "Pairs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pairs"
+        ],
+        "title": "MatchPairsReveal"
+      },
       "MultipleChoiceAnswer": {
         "properties": {
           "type": {
@@ -1926,6 +3395,40 @@
               }
             ],
             "title": "Source Text"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "options_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options Language"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "new_word"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
           },
           "options": {
             "items": {
@@ -1976,6 +3479,26 @@
           "content"
         ],
         "title": "MultipleChoiceExerciseOut"
+      },
+      "MultipleChoiceReveal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "multiple_choice",
+            "title": "Type",
+            "default": "multiple_choice"
+          },
+          "correct_option_id": {
+            "type": "string",
+            "title": "Correct Option Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "correct_option_id"
+        ],
+        "title": "MultipleChoiceReveal"
       },
       "PairItem": {
         "properties": {
@@ -2097,6 +3620,10 @@
               }
             ],
             "title": "Next Lesson Id"
+          },
+          "legendary": {
+            "type": "boolean",
+            "title": "Legendary"
           }
         },
         "type": "object",
@@ -2110,7 +3637,8 @@
           "lessons_completed",
           "total_lessons",
           "progress",
-          "next_lesson_id"
+          "next_lesson_id",
+          "legendary"
         ],
         "title": "PathSkillOut"
       },
@@ -2123,6 +3651,10 @@
           "position": {
             "type": "integer",
             "title": "Position"
+          },
+          "section": {
+            "type": "integer",
+            "title": "Section"
           },
           "title": {
             "type": "string",
@@ -2149,16 +3681,21 @@
             },
             "type": "array",
             "title": "Skills"
+          },
+          "chest": {
+            "$ref": "#/components/schemas/UnitChestOut"
           }
         },
         "type": "object",
         "required": [
           "id",
           "position",
+          "section",
           "title",
           "description",
           "theme",
-          "skills"
+          "skills",
+          "chest"
         ],
         "title": "PathUnitOut"
       },
@@ -2270,6 +3807,14 @@
           "league_rank": {
             "type": "integer",
             "title": "League Rank"
+          },
+          "league_name": {
+            "type": "string",
+            "title": "League Name"
+          },
+          "top_finishes": {
+            "type": "integer",
+            "title": "Top Finishes"
           }
         },
         "type": "object",
@@ -2280,7 +3825,9 @@
           "lessons_completed",
           "skills_completed",
           "weekly_xp",
-          "league_rank"
+          "league_rank",
+          "league_name",
+          "top_finishes"
         ],
         "title": "ProfileStatsOut"
       },
@@ -2365,6 +3912,137 @@
         ],
         "title": "ProgressOut"
       },
+      "PurchaseIn": {
+        "properties": {
+          "item_id": {
+            "$ref": "#/components/schemas/ShopItemId"
+          },
+          "purchase_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Purchase Id",
+            "description": "Client-generated id (UUID). A retry with the same id never charges twice."
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "purchase_id"
+        ],
+        "title": "PurchaseIn"
+      },
+      "PurchaseOut": {
+        "properties": {
+          "item_id": {
+            "$ref": "#/components/schemas/ShopItemId"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed",
+            "description": "True when this purchase_id had already been processed."
+          },
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          },
+          "streak_freezes": {
+            "type": "integer",
+            "title": "Streak Freezes"
+          },
+          "hearts": {
+            "$ref": "#/components/schemas/HeartsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "replayed",
+          "gems",
+          "streak_freezes",
+          "hearts"
+        ],
+        "title": "PurchaseOut"
+      },
+      "QuestOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "progress": {
+            "type": "integer",
+            "title": "Progress"
+          },
+          "target": {
+            "type": "integer",
+            "title": "Target"
+          },
+          "reward_gems": {
+            "type": "integer",
+            "title": "Reward Gems"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          },
+          "claimed": {
+            "type": "boolean",
+            "title": "Claimed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "progress",
+          "target",
+          "reward_gems",
+          "completed",
+          "claimed"
+        ],
+        "title": "QuestOut"
+      },
+      "QuestsOut": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "resets_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Resets At",
+            "description": "Local midnight: daily quests renew."
+          },
+          "next_week_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Next Week At",
+            "description": "When weekly content is revealed."
+          },
+          "quests": {
+            "items": {
+              "$ref": "#/components/schemas/QuestOut"
+            },
+            "type": "array",
+            "title": "Quests"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "resets_at",
+          "next_week_at",
+          "quests"
+        ],
+        "title": "QuestsOut"
+      },
       "RefillOut": {
         "properties": {
           "hearts": {
@@ -2381,6 +4059,151 @@
           "gems"
         ],
         "title": "RefillOut"
+      },
+      "SessionOut": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Send as `Authorization: Bearer <token>` on every request."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "SessionOut"
+      },
+      "ShopItemId": {
+        "type": "string",
+        "enum": [
+          "streak_freeze",
+          "heart_refill"
+        ],
+        "title": "ShopItemId"
+      },
+      "ShopItemOut": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ShopItemId"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "price_gems": {
+            "type": "integer",
+            "title": "Price Gems"
+          },
+          "owned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owned",
+            "description": "Inventory count for items you keep; null otherwise."
+          },
+          "max_owned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Owned"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason",
+            "description": "Why it can't be bought right now."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price_gems",
+          "owned",
+          "max_owned",
+          "available",
+          "unavailable_reason"
+        ],
+        "title": "ShopItemOut"
+      },
+      "ShopOut": {
+        "properties": {
+          "gems": {
+            "type": "integer",
+            "title": "Gems"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShopItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gems",
+          "items"
+        ],
+        "title": "ShopOut"
+      },
+      "SignupIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "title": "Email",
+            "description": "Becomes the sign-in name; stored lower-case.",
+            "examples": [
+              "sam@example.com"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "SignupIn"
       },
       "SkillDetailOut": {
         "properties": {
@@ -2441,6 +4264,10 @@
             ],
             "title": "Next Lesson Id"
           },
+          "legendary": {
+            "type": "boolean",
+            "title": "Legendary"
+          },
           "lessons": {
             "items": {
               "$ref": "#/components/schemas/SkillLessonOut"
@@ -2462,6 +4289,7 @@
           "total_lessons",
           "progress",
           "next_lesson_id",
+          "legendary",
           "lessons"
         ],
         "title": "SkillDetailOut"
@@ -2497,6 +4325,10 @@
           },
           "status": {
             "$ref": "#/components/schemas/LessonStatus"
+          },
+          "legendary": {
+            "type": "boolean",
+            "title": "Legendary"
           }
         },
         "type": "object",
@@ -2506,7 +4338,8 @@
           "title",
           "xp_reward",
           "exercise_count",
-          "status"
+          "status",
+          "legendary"
         ],
         "title": "SkillLessonOut"
       },
@@ -2552,6 +4385,98 @@
         ],
         "title": "SkillStatus"
       },
+      "StartAttemptIn": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/AttemptMode",
+            "default": "standard"
+          }
+        },
+        "type": "object",
+        "title": "StartAttemptIn"
+      },
+      "StreakCalendarOut": {
+        "properties": {
+          "current": {
+            "type": "integer",
+            "title": "Current"
+          },
+          "longest": {
+            "type": "integer",
+            "title": "Longest"
+          },
+          "active_today": {
+            "type": "boolean",
+            "title": "Active Today"
+          },
+          "freezes_owned": {
+            "type": "integer",
+            "title": "Freezes Owned"
+          },
+          "freezes_max": {
+            "type": "integer",
+            "title": "Freezes Max"
+          },
+          "month": {
+            "type": "string",
+            "title": "Month",
+            "description": "YYYY-MM of the calendar returned.",
+            "examples": [
+              "2026-10"
+            ]
+          },
+          "today": {
+            "type": "string",
+            "format": "date",
+            "title": "Today"
+          },
+          "practiced_days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Practiced Days",
+            "description": "Days in the month with a completed lesson."
+          },
+          "freeze_days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Freeze Days",
+            "description": "Days in the month covered by a streak freeze."
+          },
+          "days_practiced": {
+            "type": "integer",
+            "title": "Days Practiced"
+          },
+          "freezes_used": {
+            "type": "integer",
+            "title": "Freezes Used"
+          },
+          "society": {
+            "$ref": "#/components/schemas/StreakSocietyOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "longest",
+          "active_today",
+          "freezes_owned",
+          "freezes_max",
+          "month",
+          "today",
+          "practiced_days",
+          "freeze_days",
+          "days_practiced",
+          "freezes_used",
+          "society"
+        ],
+        "title": "StreakCalendarOut"
+      },
       "StreakOut": {
         "properties": {
           "current": {
@@ -2578,6 +4503,29 @@
           "active_today"
         ],
         "title": "StreakOut"
+      },
+      "StreakSocietyOut": {
+        "properties": {
+          "threshold": {
+            "type": "integer",
+            "title": "Threshold"
+          },
+          "unlocked": {
+            "type": "boolean",
+            "title": "Unlocked"
+          },
+          "days_to_go": {
+            "type": "integer",
+            "title": "Days To Go"
+          }
+        },
+        "type": "object",
+        "required": [
+          "threshold",
+          "unlocked",
+          "days_to_go"
+        ],
+        "title": "StreakSocietyOut"
       },
       "SubmittedPair": {
         "properties": {
@@ -2685,6 +4633,50 @@
         ],
         "title": "TypeAnswerExerciseOut"
       },
+      "TypeAnswerReveal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "type_answer",
+            "title": "Type",
+            "default": "type_answer"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TypeAnswerReveal"
+      },
+      "UnitChestOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "locked",
+              "available",
+              "claimed"
+            ],
+            "title": "Status"
+          },
+          "reward_gems": {
+            "type": "integer",
+            "title": "Reward Gems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reward_gems"
+        ],
+        "title": "UnitChestOut",
+        "description": "Treasure chest at the end of a unit: claimable once every skill is completed."
+      },
       "UpdateUserIn": {
         "properties": {
           "daily_goal_xp": {
@@ -2777,6 +4769,28 @@
             "minLength": 1,
             "title": "Source Text"
           },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "tiles_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tiles Language"
+          },
           "tiles": {
             "items": {
               "$ref": "#/components/schemas/WordTile"
@@ -2828,6 +4842,29 @@
         ],
         "title": "WordBankExerciseOut"
       },
+      "WordBankReveal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "word_bank",
+            "title": "Type",
+            "default": "word_bank"
+          },
+          "tile_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tile Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tile_ids"
+        ],
+        "title": "WordBankReveal"
+      },
       "WordTile": {
         "properties": {
           "id": {
@@ -2872,6 +4909,7 @@
         "enum": [
           "lesson_completion",
           "perfect_bonus",
+          "legendary_bonus",
           "seed"
         ],
         "title": "XpSource"

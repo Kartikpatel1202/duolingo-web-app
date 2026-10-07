@@ -24,8 +24,11 @@ from app.models import (
     XpEvent,
 )
 from app.seed.seeder import reset_and_seed, seed_database
+from tests.helpers import LESSONS_PER_SKILL, SKILLS_PER_UNIT, UNITS
 
 ALL_TABLES = (Course, Unit, Skill, Lesson, Exercise, User, Achievement, XpEvent, LeaderboardEntry)
+
+REFERENCE_PRACTICE_ICONS = {1: "star", 2: "star", 3: "star", 5: "headphones"}
 
 
 def counts(session: Session) -> dict[str, int]:
@@ -40,14 +43,51 @@ def counts(session: Session) -> dict[str, int]:
 
 def test_seed_shape(db: Session) -> None:
     assert counts(db)["Course"] == 1
-    units = db.scalars(select(Unit)).all()
-    assert len(units) == 3
+    units = db.scalars(select(Unit).order_by(Unit.position)).all()
+    assert [unit.position for unit in units] == list(range(1, UNITS + 1))
+    assert [unit.title for unit in units] == [
+        "Order at a café",
+        "Greet people and say goodbye",
+        "Say where you are from",
+        "Introduce family and friends",
+        "Describe people's personalities",
+        "Say where your things are",
+        "Talk about places in the city",
+        "Discuss languages",
+        "Talk about the weather",
+        "Shop for fruits at the market",
+    ]
+    assert {unit.section for unit in units} == {1}
     for unit in units:
-        assert len(unit.skills) >= 3
+        assert len(unit.skills) == SKILLS_PER_UNIT
+        assert unit.guidebook is not None
         for skill in unit.skills:
-            assert len(skill.lessons) >= 2
+            assert len(skill.lessons) == LESSONS_PER_SKILL
             for lesson in skill.lessons:
                 assert 5 <= len(lesson.exercises) <= 8
+
+
+def test_every_lesson_uses_several_exercise_types(db: Session) -> None:
+    for lesson in db.scalars(select(Lesson)):
+        assert len({exercise.type for exercise in lesson.exercises}) >= 4, lesson.title
+
+
+def test_practice_skills_reuse_only_their_own_units_vocabulary(db: Session) -> None:
+    for unit in db.scalars(select(Unit)):
+        *authored, practice = unit.skills
+        # Units drawn to a reference screenshot take its icon for the last node; the rest mark practice.
+        assert practice.icon == REFERENCE_PRACTICE_ICONS.get(unit.position, "dumbbell")
+
+        def texts(skills: list[Skill]) -> set[str]:
+            found: set[str] = set()
+            for skill in skills:
+                for lesson in skill.lessons:
+                    for exercise in lesson.exercises:
+                        if exercise.type is ExerciseType.MATCH_PAIRS:
+                            found |= {item["text"] for item in exercise.content["left"]}
+            return found
+
+        assert texts([practice]) <= texts(list(authored)), unit.title
 
 
 def test_seed_uses_every_exercise_type(db: Session) -> None:
@@ -157,3 +197,30 @@ def test_deleting_a_learner_cascades_to_their_progress(api, db: Session) -> None
         "user_skill_progress",
     ):
         assert db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 0
+
+
+def test_picture_questions_are_tagged_as_new_words_and_worded_like_the_reference(
+    db: Session,
+) -> None:
+    pictures = [
+        exercise
+        for exercise in db.scalars(
+            select(Exercise).where(Exercise.type == ExerciseType.MULTIPLE_CHOICE)
+        )
+        if any(option.get("emoji") for option in exercise.content["options"])
+    ]
+    assert pictures
+    for exercise in pictures:
+        assert exercise.content["label"] == "new_word"
+        # “the cat” is asked as “cat”: Which one of these is “cat”?
+        assert exercise.prompt.startswith("Which one of these is “")
+        assert exercise.prompt.endswith("”?")
+        assert "“the " not in exercise.prompt
+    text_only = [
+        exercise
+        for exercise in db.scalars(
+            select(Exercise).where(Exercise.type == ExerciseType.MULTIPLE_CHOICE)
+        )
+        if exercise not in pictures
+    ]
+    assert all(exercise.content.get("label") is None for exercise in text_only)

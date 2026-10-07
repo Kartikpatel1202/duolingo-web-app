@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.domain.enums import ExerciseType
 from app.domain.exercises import get_checker
 from app.models import Exercise, Lesson, Skill, Unit
+from app.seed.people import LEARNER_EMAIL, LEARNER_PASSWORD
 
 _submission_counter = itertools.count(1)
 
@@ -27,7 +28,9 @@ def correct_answer(exercise: Exercise) -> dict[str, Any]:
     checker = get_checker(exercise.type)
     content = checker.parse_content(exercise.content)
     solution = checker.parse_solution(exercise.solution)
-    return checker.sample_correct_answer(content, solution).model_dump(mode="json")
+    sample = checker.sample_correct_answer(content, solution)
+    answer: dict[str, Any] = sample.model_dump(mode="json")
+    return answer
 
 
 def wrong_answer(exercise: Exercise) -> dict[str, Any]:
@@ -51,6 +54,24 @@ def wrong_answer(exercise: Exercise) -> dict[str, Any]:
     return answer
 
 
+# Shape of the seeded course (Section 1): every unit has the same number of skills and lessons.
+UNITS = 10
+SKILLS_PER_UNIT = 4
+LESSONS_PER_SKILL = 2
+TOTAL_SKILLS = UNITS * SKILLS_PER_UNIT
+TOTAL_LESSONS = TOTAL_SKILLS * LESSONS_PER_SKILL
+
+
+def sign_in(client: TestClient) -> TestClient:
+    """Log the seeded learner in through the real endpoint and keep the session on the client."""
+    session = client.post(
+        "/api/auth/login", json={"identifier": LEARNER_EMAIL, "password": LEARNER_PASSWORD}
+    )
+    assert session.status_code == 200, session.text
+    client.headers["Authorization"] = f"Bearer {session.json()['token']}"
+    return client
+
+
 class Api:
     def __init__(self, client: TestClient, session_factory: sessionmaker[Session]) -> None:
         self.client = client
@@ -67,6 +88,18 @@ class Api:
                 .where(Unit.position == unit, Skill.position == skill, Lesson.position == lesson)
             )
             return session.scalars(statement).one()
+
+    def unit_lesson_ids(self, unit: int) -> list[int]:
+        """Every lesson of a unit, in the order a learner has to play them."""
+        with self._session_factory() as session:
+            statement = (
+                select(Lesson.id)
+                .join(Skill, Lesson.skill_id == Skill.id)
+                .join(Unit, Skill.unit_id == Unit.id)
+                .where(Unit.position == unit)
+                .order_by(Skill.position, Lesson.position)
+            )
+            return list(session.scalars(statement).all())
 
     def exercises(self, lesson_id: int) -> list[Exercise]:
         with self._session_factory() as session:
@@ -102,6 +135,11 @@ class Api:
         return self.client.post(
             f"/api/progress/lesson/{lesson_id}/complete", json={"attempt_id": attempt_id}
         )
+
+    def play_unit(self, unit: int) -> None:
+        """Finish a whole unit, lesson by lesson."""
+        for lesson_id in self.unit_lesson_ids(unit):
+            self.play(lesson_id)
 
     def play(self, lesson_id: int, *, mistakes: int = 0) -> dict[str, Any]:
         """Play a whole lesson: `mistakes` wrong answers on the first exercise, then all correct.

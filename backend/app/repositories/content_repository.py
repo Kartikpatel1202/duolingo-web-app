@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Course, Exercise, Lesson, Skill, Unit
+from app.models import Course, Exercise, Guidebook, GuidebookSection, Lesson, Skill, Unit
 
 
 class ContentRepository:
@@ -25,6 +25,20 @@ class ContentRepository:
             .where(Course.id == course_id)
             .options(
                 selectinload(Course.units).selectinload(Unit.skills).selectinload(Skill.lessons)
+            )
+        )
+        return self._session.scalars(statement).one_or_none()
+
+    def get_unit_with_guidebook(self, unit_id: int) -> Unit | None:
+        """Unit with its course and the whole guidebook tree (no N+1)."""
+        statement = (
+            select(Unit)
+            .where(Unit.id == unit_id)
+            .options(
+                selectinload(Unit.course),
+                selectinload(Unit.guidebook)
+                .selectinload(Guidebook.sections)
+                .selectinload(GuidebookSection.entries),
             )
         )
         return self._session.scalars(statement).one_or_none()
