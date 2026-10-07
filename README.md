@@ -58,103 +58,17 @@ backend does not have fails the type check.
 
 ## Architecture
 
-```
-Browser (Next.js)                              FastAPI                       SQLite
-┌──────────────────────────────┐   HTTP/JSON   ┌────────────────────────┐   ┌──────────┐
-│ app/         routes          │ ────────────► │ api/routers   (thin)   │   │          │
-│ features/*   domain UI       │               │ services      (use     │   │ content  │
-│ hooks/api    TanStack Query  │ ◄──────────── │               cases)   │◄─►│ learner  │
-│ lib/api      typed client    │               │ domain        (pure    │   │ ledgers  │
-│ components/ui  primitives    │               │               rules)   │   │          │
-└──────────────────────────────┘               │ repositories  (SQL)    │   └──────────┘
-                                               └────────────────────────┘
-```
+![System architecture: the Next.js frontend calls the FastAPI backend over HTTP/JSON, which reads and writes SQLite through SQLAlchemy](docs/images/system-architecture.webp)
 
-**Frontend layout**
-
-| Part | Where | What it does |
-|---|---|---|
-| App shell | `components/layout` | Sidebar, phone bottom bar, right rail |
-| Stats bar | `features/stats` | Course, streak, XP, gems and hearts, each with a hover card |
-| Learning path | `features/path` | Unit banners, nodes, characters, lesson card, jump node |
-| Lesson player | `features/lesson` | Exercise screens, feedback, hearts, completion screen |
-| Guidebook | `features/guidebook` | Key phrases, tips and tables with audio |
-| Other pages | `features/{quests,shop,leaderboard,profile,streak,feed}` | One folder per page |
-
-Each unit's look (node positions, characters, locked artwork) is configuration in
-`features/path/unitArt.ts`. Which skills exist and whether each is locked, available or complete
-always comes from the API.
-
-**Backend layers:** routers validate and delegate; services run one use case in one transaction;
-`domain/` holds pure rules (unlocks, XP, streak, hearts, exercise checkers) with no database
-access; repositories hold the queries.
-
-**How a lesson is processed**
-
-1. **Start.** `POST /api/lessons/{id}/attempts` checks the lesson is unlocked and the learner has
-   hearts, then creates an attempt (or resumes the active one).
-2. **Answer.** `POST /api/lessons/{id}/check` grades one answer on the server. Solutions are never
-   sent to the browser before an answer is checked. A wrong answer costs exactly one heart.
-3. **Out of hearts.** At zero hearts the API refuses further answers; the player offers a gem
-   refill or waiting for regeneration.
-4. **Complete.** `POST /api/progress/lesson/{id}/complete` awards XP, updates the streak, daily
-   goal, quests, league and achievements, and unlocks the next node, in one transaction.
-
-**Rules worth knowing**
-
-- **The backend is the source of truth.** The frontend never computes XP, hearts, streak or
-  unlocks.
-- **Store facts, compute states.** Locked/available/completed is derived from completion rows.
-- **Every reward is idempotent.** Answers, completions, claims and purchases carry a unique key,
-  so a retry or double-click cannot pay out twice.
-- **Time goes through one clock.** Streak days and league weeks use `APP_TIMEZONE`; tests use a
-  fixed clock.
-- **Unlocking.** A skill opens when the previous one is completed. The first skill of every unit
-  is always open ("Jump here"); the rest of that unit still unlocks skill by skill.
+The full design, including how a lesson is started, checked and completed, is in
+[docs/architecture.md](docs/architecture.md).
 
 ## Database schema
 
-Twenty tables in three groups. Models are in `backend/app/models`.
+![Database schema: learning content, user data, and achievements and shop tables with their relationships](docs/images/database-schema.webp)
 
-```
-courses ─< units ─< skills ─< lessons ─< exercises
-              │
-              └── guidebooks ─< guidebook_sections ─< guidebook_entries
-
-users ─< lesson_attempts ─< attempt_answers
-users ─< user_lesson_progress >─ lessons
-users ─< user_skill_progress  >─ skills
-users ─< xp_events
-users ─< leaderboard_entries
-users ─< user_achievements >─ achievements
-users ─< reward_claims
-users ─< shop_purchases
-users ─< streak_freeze_uses
-```
-
-| Table | Purpose |
-|---|---|
-| `users` | Account (email, password hash) and learner state: hearts, gems, streak, daily goal |
-| `courses`, `units`, `skills`, `lessons` | The content tree, ordered by `position` |
-| `exercises` | One exercise: `type`, `prompt`, `content` (shown) and `solution` (never served before checking), both JSON |
-| `guidebooks`, `guidebook_sections`, `guidebook_entries` | A unit's key phrases, tips and tables |
-| `lesson_attempts` | One play-through of a lesson (standard or Legendary) |
-| `attempt_answers` | Each checked answer, unique per submission id |
-| `user_lesson_progress`, `user_skill_progress` | Completion facts; statuses are derived from these |
-| `xp_events` | XP ledger; total and daily XP are sums over it |
-| `leaderboard_entries` | Weekly XP per learner, keyed by week |
-| `achievements`, `user_achievements` | Badge definitions and when each was earned |
-| `reward_claims` | Quest and chest rewards, unique per learner and reward |
-| `shop_purchases` | Gem purchases, unique per purchase id |
-| `streak_freeze_uses` | Days a streak freeze covered |
-
-Notes on the design:
-
-- There is no separate `UserStats` or `ChallengeOption` table. Learner stats live on `users` and
-  in the ledgers; answer options live in the exercise's JSON `content`, because each exercise type
-  has a different shape.
-- Foreign keys are enforced (SQLite has them off by default) and child rows cascade on delete.
-- Starting the API creates missing tables and adds missing nullable columns. It never drops data.
+The models are in `backend/app/models`; the schema is described table by table in
+[docs/architecture.md](docs/architecture.md).
 
 ## API overview
 
