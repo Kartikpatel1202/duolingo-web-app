@@ -222,8 +222,8 @@ def test_a_registered_learner_can_log_in_later_and_starts_from_scratch(
 
     path = client.get("/api/courses/1/path").json()
     statuses = [skill["status"] for unit in path["units"] for skill in unit["skills"]]
-    assert statuses[0] == "available"
-    assert set(statuses[1:]) == {"locked"}
+    # Nothing played yet: only the first skill of each unit is open ("Jump here").
+    assert statuses == (["available"] + ["locked"] * 3) * (len(statuses) // 4)
     assert client.get("/api/leaderboard").json()["current_user"]["xp"] == 0
 
 

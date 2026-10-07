@@ -108,9 +108,18 @@ def test_replaying_a_completed_lesson_starts_a_new_attempt(api: Api) -> None:
 
 
 def test_cannot_start_a_locked_lesson(api: Api) -> None:
-    response = api.start(api.lesson_id(2, 1, 1))
+    # The second skill of a unit stays locked until the first one is completed…
+    response = api.start(api.lesson_id(2, 2, 1))
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "LESSON_LOCKED"
+    # …and so does the second lesson of an open skill.
+    assert api.start(api.lesson_id(2, 1, 2)).status_code == 403
+
+
+def test_the_first_lesson_of_any_unit_can_be_started_by_jumping_ahead(api: Api) -> None:
+    response = api.start(api.lesson_id(2, 1, 1))
+    assert response.status_code == 201
+    assert api.start(api.lesson_id(10, 1, 1)).status_code == 201
 
 
 def test_cannot_start_a_lesson_without_hearts(api: Api, db: Session) -> None:

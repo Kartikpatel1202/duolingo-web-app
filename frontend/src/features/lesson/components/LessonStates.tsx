@@ -19,9 +19,9 @@ const TIPS = [
  * with a few notes drifting up, "LOADING…" and a tip. Same screen while the lesson content loads
  * and while the attempt is created, so there is no flicker between the two.
  */
-export function LessonLoading({ lessonId }: { lessonId: number }) {
+export function LessonLoading({ lessonId, tip: customTip }: { lessonId: number; tip?: string }) {
   const reduceMotion = useReducedMotion();
-  const tip = (TIPS[lessonId % TIPS.length] ?? TIPS[0] ?? "").replace("{brand}", BRAND.name);
+  const tip = customTip ?? (TIPS[lessonId % TIPS.length] ?? TIPS[0] ?? "").replace("{brand}", BRAND.name);
   return (
     <main
       aria-busy="true"

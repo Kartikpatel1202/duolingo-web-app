@@ -2,6 +2,8 @@
 
 * Skills form a linear path in global order (unit position, skill position).
 * The first skill is always unlocked; any other skill unlocks when the previous one is completed.
+* "Jump here": the first skill of every unit is also always unlocked, so a learner can start any
+  unit without finishing the ones before it. The rest of that unit still unlocks skill by skill.
 * Inside an unlocked skill, lesson 1 is available and each later lesson unlocks when the previous
   lesson is completed. Completed lessons stay replayable.
 """
@@ -16,6 +18,7 @@ from app.domain.enums import LessonStatus, SkillStatus
 class SkillOutline:
     skill_id: int
     lesson_ids: tuple[int, ...]  # in lesson position order
+    starts_unit: bool = False  # first skill of its unit: always unlocked ("Jump here")
 
 
 def skill_statuses(
@@ -28,7 +31,7 @@ def skill_statuses(
     for skill in skills:
         if skill.skill_id in completed_skills:
             status = SkillStatus.COMPLETED
-        elif not previous_completed:
+        elif not previous_completed and not skill.starts_unit:
             status = SkillStatus.LOCKED
         elif any(lesson_id in completed_lessons for lesson_id in skill.lesson_ids):
             status = SkillStatus.IN_PROGRESS

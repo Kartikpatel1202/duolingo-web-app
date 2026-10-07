@@ -14,12 +14,14 @@ export interface DialogProps {
   onClose: () => void;
   /** Defaults to true. Non-dismissible dialogs hide the close button and ignore Escape. */
   dismissible?: boolean;
+  /** Hide the corner close button while staying dismissible (Escape and the backdrop still close). */
+  hideClose?: boolean;
   labelledBy: string;
   children: ReactNode;
 }
 
 /** Centred dialog for tablet/desktop. */
-export function Modal({ open, onClose, dismissible = true, labelledBy, children }: DialogProps) {
+export function Modal({ open, onClose, dismissible = true, hideClose = false, labelledBy, children }: DialogProps) {
   return (
     <DialogFrame
       open={open}
@@ -35,7 +37,7 @@ export function Modal({ open, onClose, dismissible = true, labelledBy, children 
           animate={{ opacity: 1, scale: 1, y: 0, transition: springSnappy }}
           exit={{ opacity: 0, scale: 0.95, y: 8, transition: { duration: 0.15 } }}
         >
-          {dismissible && (
+          {dismissible && !hideClose && (
             <IconButton
               label="Close"
               icon={<X className="size-6" strokeWidth={3} />}

@@ -1004,7 +1004,7 @@ Resets implicitly at local midnight (it's a query, not a counter). Goal is user-
 ### Skill & lesson unlocking
 Global skill order = `(unit.position, skill.position)`.
 * Skill status: `completed` if `user_skill_progress.completed_at` set; else `in_progress` if any of its
-  lessons completed; else `available` if it is the first skill **or** the previous skill is completed;
+  lessons completed; else `available` if it is the first skill, the previous skill is completed, **or** it is the first skill of its unit ("Jump here": any unit can be started; the rest of that unit still unlocks skill by skill);
   else `locked`.
 * Lesson status within a non-locked skill: `completed` if completed; `available` if position 1 or the
   previous lesson is completed; else `locked`. Completed lessons are always replayable.

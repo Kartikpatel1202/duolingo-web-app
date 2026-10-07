@@ -4,6 +4,7 @@ import { Award, BookOpen, Flame, Plus, Shield } from "lucide-react";
 
 import { Avatar, Badge, ErrorState, Skeleton, type Tone } from "@/components/ui";
 import { useFeed } from "@/hooks/api/useEngagement";
+import { useCurrentUser } from "@/hooks/api/useLearner";
 import { cn } from "@/lib/cn";
 import type { FeedItem } from "@/types/api";
 
@@ -23,22 +24,7 @@ export function FeedView() {
   return (
     <div className="space-y-6">
       <h1 className="text-title font-black text-ink">Feed</h1>
-      <section aria-label="Friend streaks" className="space-y-3">
-        <div className="flex justify-between">
-          {Array.from({ length: FRIEND_SLOTS }, (_, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className="flex size-14 items-center justify-center rounded-full border-2 border-dashed border-line-strong text-muted"
-            >
-              <Plus className="size-6" strokeWidth={3} />
-            </span>
-          ))}
-        </div>
-        <p className="rounded-card border-2 border-line px-4 py-3 text-center font-bold text-ink-soft">
-          Friend streaks are coming soon — practise together and keep each other going.
-        </p>
-      </section>
+      <FriendStreaksCard />
 
       {error ? (
         <ErrorState error={error} onRetry={() => void refetch()} retrying={isFetching} />
@@ -56,6 +42,57 @@ export function FeedView() {
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * Friend streaks teaser. Friends are not part of this app yet, so the card says so plainly: the
+ * learner's own avatar fills the first seat and the other seats are empty invitations.
+ */
+function FriendStreaksCard() {
+  const { data: user } = useCurrentUser();
+  return (
+    <section
+      aria-label="Friend streaks"
+      className="overflow-hidden rounded-panel border-2 border-ember-100 bg-[linear-gradient(135deg,var(--color-ember-50),var(--color-sun-50))]"
+    >
+      <div className="flex items-start gap-4 p-5">
+        <span
+          aria-hidden
+          className="flex size-14 shrink-0 items-center justify-center rounded-card bg-ember-500 text-white shadow-[0_4px_0_var(--color-ember-600)]"
+        >
+          <Flame className="size-8" fill="currentColor" strokeWidth={1.5} />
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-heading font-extrabold text-ink">Friend streaks</h2>
+            <Badge tone="ember">Coming soon</Badge>
+          </div>
+          <p className="font-semibold text-ink-soft">
+            Practise together and keep each other going. Invite friends here once it opens.
+          </p>
+        </div>
+      </div>
+
+      <ul aria-hidden className="flex items-start justify-between gap-2 border-t-2 border-ember-100 bg-surface/70 px-5 py-4">
+        <li className="flex w-14 flex-col items-center gap-1.5">
+          {user ? (
+            <Avatar name={user.display_name} color={user.avatar_color} size="md" />
+          ) : (
+            <Skeleton shape="circle" className="size-11" />
+          )}
+          <span className="text-xs font-extrabold text-ink-soft">You</span>
+        </li>
+        {Array.from({ length: FRIEND_SLOTS - 1 }, (_, i) => (
+          <li key={i} className="flex w-14 flex-col items-center gap-1.5">
+            <span className="flex size-11 items-center justify-center rounded-full border-2 border-dashed border-ember-500/50 bg-surface text-ember-500">
+              <Plus className="size-5" strokeWidth={3} />
+            </span>
+            <span className="text-xs font-extrabold text-muted">Friend</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

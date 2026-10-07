@@ -30,8 +30,13 @@ class CourseProgress:
         self.skills: list[Skill] = [skill for unit in course.units for skill in unit.skills]
         self._skill_by_id = {skill.id: skill for skill in self.skills}
         outlines = [
-            unlocks.SkillOutline(skill.id, tuple(lesson.id for lesson in skill.lessons))
-            for skill in self.skills
+            unlocks.SkillOutline(
+                skill.id,
+                tuple(lesson.id for lesson in skill.lessons),
+                starts_unit=index == 0,
+            )
+            for unit in course.units
+            for index, skill in enumerate(unit.skills)
         ]
         self._skill_status = unlocks.skill_statuses(
             outlines, set(completed_lessons), completed_skills

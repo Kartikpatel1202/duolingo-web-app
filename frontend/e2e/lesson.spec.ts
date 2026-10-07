@@ -253,7 +253,7 @@ test.describe("Lesson player", () => {
     await lesson.answer(true);
     await lesson.continue();
     await page.getByRole("button", { name: "Exit lesson" }).click();
-    const dialog = page.getByRole("dialog", { name: "Leaving so soon?" });
+    const dialog = page.getByRole("dialog", { name: /^Wait, don’t go!/ });
     await dialog.getByRole("button", { name: "Keep learning" }).click();
     await expect(dialog).toBeHidden();
     await page.getByRole("button", { name: "Exit lesson" }).click();

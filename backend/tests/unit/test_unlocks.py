@@ -60,3 +60,26 @@ def test_completed_lessons_stay_completed_for_replay() -> None:
 def test_all_lessons_completed() -> None:
     assert all_lessons_completed([10, 11], {10, 11, 20})
     assert not all_lessons_completed([10, 11], {10})
+
+
+def test_the_first_skill_of_a_unit_is_open_without_finishing_the_previous_unit() -> None:
+    # Two units of two skills each; nothing played. "Jump here" opens skill 3, not skill 4.
+    path = [
+        SkillOutline(1, (10,), starts_unit=True),
+        SkillOutline(2, (20,)),
+        SkillOutline(3, (30,), starts_unit=True),
+        SkillOutline(4, (40,)),
+    ]
+    assert skill_statuses(path, set(), set()) == {
+        1: SkillStatus.AVAILABLE,
+        2: SkillStatus.LOCKED,
+        3: SkillStatus.AVAILABLE,
+        4: SkillStatus.LOCKED,
+    }
+    # Playing the jumped-to skill unlocks the next skill of that unit only.
+    assert skill_statuses(path, {30}, {3}) == {
+        1: SkillStatus.AVAILABLE,
+        2: SkillStatus.LOCKED,
+        3: SkillStatus.COMPLETED,
+        4: SkillStatus.AVAILABLE,
+    }

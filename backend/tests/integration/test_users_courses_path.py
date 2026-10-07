@@ -42,15 +42,18 @@ def test_list_and_get_course(api: Api) -> None:
     assert detail["completed_lesson_count"] == 0
 
 
-def test_fresh_path_has_only_the_first_skill_available(api: Api) -> None:
+def test_fresh_path_opens_only_the_first_skill_of_each_unit(api: Api) -> None:
     path = api.get("/api/courses/1/path")
     skills = [skill for unit in path["units"] for skill in unit["skills"]]
-    assert [s["status"] for s in skills] == ["available"] + ["locked"] * (TOTAL_SKILLS - 1)
+    # "Jump here": every unit can be started; the rest of each unit unlocks skill by skill.
+    per_unit = ["available"] + ["locked"] * (TOTAL_SKILLS // UNITS - 1)
+    assert [s["status"] for s in skills] == per_unit * UNITS
     first = skills[0]
     assert path["current_skill_id"] == first["id"]
     assert path["current_lesson_id"] == first["next_lesson_id"] == api.lesson_id(1, 1, 1)
     assert first["lessons_completed"] == 0 and first["total_lessons"] == 2
-    assert all(s["next_lesson_id"] is None for s in skills[1:])
+    # A locked skill offers no lesson; an open one offers its first.
+    assert all((s["next_lesson_id"] is None) == (s["status"] == "locked") for s in skills[1:])
     assert [u["theme"] for u in path["units"]] == [
         "lime",
         "purple",

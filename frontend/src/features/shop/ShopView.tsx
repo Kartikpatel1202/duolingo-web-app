@@ -1,9 +1,8 @@
 "use client";
 
-import { Clock3, Gift, Heart, Infinity as InfinityIcon, Snowflake, Sparkles, Zap, type LucideIcon } from "lucide-react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 
-import { DuoMascot } from "@/components/illustrations";
 import { Badge, Button, ErrorState, Skeleton, useToast } from "@/components/ui";
 import { GemIcon } from "@/features/stats";
 import { usePurchase, useShop } from "@/hooks/api/useEngagement";
@@ -12,17 +11,60 @@ import { BRAND } from "@/lib/brand";
 import { newIdempotencyKey } from "@/lib/ids";
 import type { ShopItem, ShopItemId } from "@/types/api";
 
-const ITEM_ICONS: Record<ShopItemId, { icon: LucideIcon; className: string }> = {
-  streak_freeze: { icon: Snowflake, className: "bg-sky-100 text-sky-500" },
-  heart_refill: { icon: Heart, className: "bg-cherry-50 text-cherry-500" },
+/**
+ * Item artwork: the supplied pictures in `public/brand/shop` (used as they are, not redrawn).
+ * `tile` pictures come with their own coloured background, so they fill the icon box.
+ */
+interface ShopArt {
+  src: string;
+  width: number;
+  height: number;
+  tile?: boolean;
+}
+
+const ART = "/brand/shop";
+
+const ITEM_ART: Record<ShopItemId, ShopArt> = {
+  streak_freeze: { src: `${ART}/streak-freeze.png`, width: 49, height: 72 },
+  heart_refill: { src: `${ART}/heart-refill.png`, width: 62, height: 55 },
 };
 
+const SUPER_ART: ShopArt = { src: `${ART}/super.png`, width: 65, height: 54 };
+
 /** Preview-only items (shown, clearly labelled, but not sold). */
-const PREVIEWS: { title: string; description: string; icon: LucideIcon }[] = [
-  { title: "XP Boost", description: "Double XP for 15 minutes", icon: Zap },
-  { title: "Timer Boost", description: "Extra time in Legendary challenges", icon: Clock3 },
-  { title: "Daily Chest", description: "A free surprise every day", icon: Gift },
+const PREVIEWS: { title: string; description: string; art: ShopArt }[] = [
+  {
+    title: "XP Boost",
+    description: "Double XP for 15 minutes",
+    art: { src: `${ART}/xp-boost.png`, width: 102, height: 110, tile: true },
+  },
+  {
+    title: "Timer Boost",
+    description: "Extra time in Legendary challenges",
+    art: { src: `${ART}/timer-boost.png`, width: 115, height: 90, tile: true },
+  },
+  {
+    title: "Daily Chest",
+    description: "A free surprise every day",
+    art: { src: `${ART}/daily-chest.png`, width: 186, height: 143 },
+  },
 ];
+
+/** An item's picture in a fixed 56px box, so rows line up whatever the artwork's shape. */
+function ShopIcon({ art }: { art: ShopArt }) {
+  return (
+    <span aria-hidden className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-tile">
+      <Image
+        src={art.src}
+        alt=""
+        width={art.width}
+        height={art.height}
+        unoptimized
+        className={art.tile ? "size-full object-cover" : "max-h-full max-w-full object-contain"}
+      />
+    </span>
+  );
+}
 
 /** Gem shop: real purchases for streak freezes and heart refills; previews are labelled. */
 export function ShopView() {
@@ -50,15 +92,22 @@ export function ShopView() {
 
       <section className="relative overflow-hidden rounded-panel bg-[linear-gradient(120deg,var(--color-grape-600),var(--color-sky-600))] p-5 text-white">
         <div className="relative z-10 max-w-[65%] space-y-3">
-          <Badge tone="grape" icon={<Sparkles className="size-3.5" />}>
-            Super
-          </Badge>
+          {/* The same supplied badge and mascot as the Super card in the right rail. */}
+          <Image src="/brand/path/super-badge.png" alt="Super" width={78} height={21} unoptimized />
           <p className="text-heading font-black">Unlimited hearts, no interruptions</p>
           <Button variant="ghost" size="sm" disabled>
             Coming soon
           </Button>
         </div>
-        <DuoMascot state="celebrating" className="absolute -right-2 -bottom-4 size-36" />
+        <Image
+          src="/brand/path/super-duo.png"
+          alt=""
+          aria-hidden
+          width={134}
+          height={120}
+          unoptimized
+          className="absolute top-1/2 right-4 -translate-y-1/2"
+        />
       </section>
 
       <Section title="Power-ups">
@@ -72,12 +121,12 @@ export function ShopView() {
       </Section>
 
       <Section title="Subscriptions">
-        <PreviewRow icon={InfinityIcon} title={`Super ${BRAND.name}`} description="Unlimited hearts and more" />
+        <PreviewRow art={SUPER_ART} title={`Super ${BRAND.name}`} description="Unlimited hearts and more" />
       </Section>
 
       <Section title="Special offers">
         {PREVIEWS.map((preview) => (
-          <PreviewRow key={preview.title} icon={preview.icon} title={preview.title} description={preview.description} />
+          <PreviewRow key={preview.title} art={preview.art} title={preview.title} description={preview.description} />
         ))}
       </Section>
     </div>
@@ -97,13 +146,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function ItemRow({ item, onBuy, busy }: { item: ShopItem; onBuy: () => void; busy: boolean }) {
-  const visual = ITEM_ICONS[item.id];
-  const Icon = visual.icon;
   return (
     <div className="flex items-center gap-4 rounded-card border-2 border-line p-4" data-shop-item={item.id}>
-      <span className={`flex size-14 shrink-0 items-center justify-center rounded-tile ${visual.className}`} aria-hidden>
-        <Icon className="size-8" strokeWidth={2.4} />
-      </span>
+      <ShopIcon art={ITEM_ART[item.id]} />
       <div className="min-w-0 flex-1">
         <p className="font-extrabold text-ink">{item.name}</p>
         <p className="text-sm font-semibold text-muted">{item.description}</p>
@@ -134,12 +179,10 @@ function ItemRow({ item, onBuy, busy }: { item: ShopItem; onBuy: () => void; bus
   );
 }
 
-function PreviewRow({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
+function PreviewRow({ art, title, description }: { art: ShopArt; title: string; description: string }) {
   return (
     <div className="flex items-center gap-4 rounded-card border-2 border-dashed border-line p-4 opacity-80">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-tile bg-mist text-muted" aria-hidden>
-        <Icon className="size-8" strokeWidth={2.4} />
-      </span>
+      <ShopIcon art={art} />
       <div className="flex-1">
         <p className="font-extrabold text-ink">{title}</p>
         <p className="text-sm font-semibold text-muted">{description}</p>

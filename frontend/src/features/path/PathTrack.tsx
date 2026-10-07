@@ -93,9 +93,15 @@ export function PathTrack({
   const completed = skills.filter(
     (skill) => skill.status === "completed",
   ).length;
-  // A unit the learner has not reached: every skill is still locked.
+  // A unit ahead of the learner: nothing in it has been played and it is not where they are now.
+  // Its first skill is open on the server ("Jump here"), the rest are locked.
   const unitLocked =
-    skills.length > 0 && skills.every((skill) => skill.status === "locked");
+    skills.length > 0 &&
+    skills.every(
+      (skill, index) =>
+        skill.id !== currentSkillId &&
+        (skill.status === "locked" || (index === 0 && skill.status === "available")),
+    );
   const introSkill = skills.find((skill) => skill.id === introSkillId) ?? null;
   const introPoint = introSkill
     ? points[

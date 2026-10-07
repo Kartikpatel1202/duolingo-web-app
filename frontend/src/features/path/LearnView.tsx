@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Card, ErrorState, toTone } from "@/components/ui";
@@ -10,7 +11,6 @@ import type { CoursePath } from "@/types/api";
 
 import { ReminderBanner } from "@/features/stats";
 
-import { JumpDialog } from "./JumpDialog";
 import { ScrollToTopButton, UpNextCard } from "./PathExtras";
 import { PathSkeleton } from "./PathSkeleton";
 import { SkillDetailDialog, type SelectedSkill } from "./SkillDetailDialog";
@@ -74,31 +74,9 @@ function LearningPath({ path }: { path: CoursePath }) {
   );
   const close = useCallback(() => setOpen(false), []);
 
-  // "Jump here?" on a unit that is still ahead of the learner.
-  const [jumpUnitId, setJumpUnitId] = useState<number | null>(null);
-  const [jumpOpen, setJumpOpen] = useState(false);
-  const jumpUnit = path.units.find((unit) => unit.id === jumpUnitId) ?? null;
-  const openJump = useCallback(
-    (unitId: number) => {
-      const unit = path.units.find((candidate) => candidate.id === unitId);
-      const first = unit?.skills[0];
-      // Units with their own look answer "Jump here?" with the same inline card as any lesson.
-      if (unit && first && UNIT_ART[unit.position]) {
-        setOpen(false);
-        setIntroSkillId(first.id);
-        return;
-      }
-      setJumpUnitId(unitId);
-      setJumpOpen(true);
-    },
-    [path.units],
-  );
-  const goToCurrentSkill = useCallback(() => {
-    const node = document.querySelector("[data-current-skill]");
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    node?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
-    if (path.current_skill_id != null) openSkill(path.current_skill_id);
-  }, [path.current_skill_id, openSkill]);
+  // "Jump here?" on a unit ahead of the learner: its own screen (loading, then the test prompt).
+  const router = useRouter();
+  const openJump = useCallback((unitId: number) => router.push(`/jump/${unitId}`), [router]);
 
   // Bring the learner's current skill into view on arrival (like opening the game board).
   useEffect(() => {
@@ -140,13 +118,6 @@ function LearningPath({ path }: { path: CoursePath }) {
       <UpNextCard section={Math.max(1, ...path.units.map((unit) => unit.section)) + 1} />
       <ScrollToTopButton />
       <SkillDetailDialog selection={selection} open={open} onClose={close} />
-      <JumpDialog
-        unit={jumpUnit}
-        tone={toTone(jumpUnit?.theme, "leaf")}
-        open={jumpOpen}
-        onClose={() => setJumpOpen(false)}
-        onGoToCurrent={goToCurrentSkill}
-      />
     </div>
   );
 }

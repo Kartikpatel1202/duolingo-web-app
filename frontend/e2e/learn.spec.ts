@@ -174,7 +174,7 @@ test.describe("Section 1 path", () => {
     expect(firstPhrases.size).toBe(path.units.length);
   });
 
-  test("units ahead of the learner offer “Jump here?”, which opens a lesson card that cannot start", async ({ page, backend }) => {
+  test("units ahead of the learner offer “Jump here?”, which starts that unit's first lesson", async ({ page, backend }) => {
     const path = await backend.path();
     await page.goto("/learn");
 
@@ -184,14 +184,19 @@ test.describe("Section 1 path", () => {
     const second = page.getByRole("region", { name: path.units[1]!.title, exact: true });
     await expect(second.getByText("Jump here?")).toBeAttached();
 
+    // The server opens the first skill of every unit and keeps the rest of the unit locked.
+    const [first, next] = path.units[1]!.skills;
+    expect(first!.status).toBe("available");
+    expect(next!.status).toBe("locked");
+
+    // The node opens the jump-ahead screen: loading, then the prompt naming the unit…
     await second.locator("button[data-jump]").click();
-    // The unit's own lesson card opens under the node (no modal), naming the unit and its reward…
-    const first = path.units[1]!.skills[0]!;
-    const card = page.getByRole("dialog", { name: new RegExp(`^${first.title}, lesson 1 of`) });
-    await expect(card).toContainText(path.units[1]!.title);
-    // …but the lesson cannot be started: the unit is still locked on the server.
-    await expect(card.getByRole("button", { name: /^Start/ })).toBeDisabled();
-    expect((await backend.path()).units[1]!.skills[0]!.status).toBe("locked");
+    await expect(page).toHaveURL(new RegExp(`/jump/${path.units[1]!.id}$`));
+    await expect(page.getByRole("heading", { name: "Pass this test to jump ahead to Unit 2!" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Maybe later" })).toHaveAttribute("href", "/learn");
+    // …and LET'S GO starts the unit's first lesson in the lesson player.
+    await page.getByRole("link", { name: "Let's go" }).click();
+    await expect(page).toHaveURL(new RegExp(`/lesson/${first!.next_lesson_id}$`));
   });
 
   test("a locked skill shows its name on hover and cannot be started", async ({ page, backend }) => {
